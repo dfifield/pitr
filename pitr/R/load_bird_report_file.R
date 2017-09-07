@@ -126,12 +126,12 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 #'@export
 #'@title Print a summary of data parsed from a Raspberry Pi report file
 #'
-#'@description The function will summarize data parsed from a a bird report datafile.
+#'@description The function summarizes data parsed from a bird report datafile.
 #'
 #'@param dat List (typically returned from \code{pitdb_parse_bird_report_file}
-#'  containing elements \code{status, uploads, tag_reads, bad_recs}.
+#'  containing elements \code{tag_reads, statuses, uploads, bad_recs}.
 #'@param ch  an open connection to the database. If not null, tag_read records are further categorized
-#'  as \code{webserver tags, test tags, unknown tags,} and possible \code{ghostreads}.
+#'  as webserver tags, test tags, unknown tags, and possible ghostreads.
 #'
 #'@details This function takes the output from \code{pitdb_parse_bird_report_file}
 #'  and summarizes the numbers of each type of info contained in the parsed file.
