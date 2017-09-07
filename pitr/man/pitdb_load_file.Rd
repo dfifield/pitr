@@ -10,13 +10,13 @@ pitdb_load_file(ch, filename, detect_non_reporters = TRUE,
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
 
+\item{filename}{Path to file containing data dumped from a monitor board.}
+
 \item{detect_non_reporters}{Produce warning message for any deployed boards
 not reporting data in \code{inputfile}.}
 
 \item{detect_ghost_reads}{Produce a warning for potential ghost reads. See
-\code{\link{Sanity checks}} below.}
-
-\item{inputfile}{Path to file containing data dumped from a monitor board.}
+\code{Sanity checks} below.}
 }
 \value{
 Returns TRUE on success and FALSE on error.
