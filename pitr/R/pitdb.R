@@ -27,11 +27,11 @@ pitdb_open <- function(pathname){
 #'@description The function will load a datafile downloaded from a PIT tag
 #'  monitor board into a Microsoft Access database.
 #'@param ch Channel to open database returned from \code{pitdb.open}.
-#'@param inputfile Path to file containing data dumped from a monitor board.
+#'@param filename Path to file containing data dumped from a monitor board.
 #'@param detect_non_reporters Produce warning message for any deployed boards
 #'  not reporting data in \code{inputfile}.
 #'@param detect_ghost_reads Produce a warning for potential ghost reads. See
-#'  \code{\link{Sanity checks}} below.
+#'  \code{Sanity checks} below.
 #'
 #'@details This function reads a text file of records that have been extracted
 #'  from a monitor board and imports them into the database indicated by
