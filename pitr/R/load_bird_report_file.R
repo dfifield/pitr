@@ -117,7 +117,7 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
   uploads$FTime <- NULL
 
   # return value
-  list(tag_reads = tag_reads,status = statuses, uploads = uploads, bad_recs = bad_recs)
+  list(tag_reads = tag_reads,statuses = statuses, uploads = uploads, bad_recs = bad_recs)
 }
 
 
@@ -130,68 +130,64 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 #'
 #'@param dat List (typically returned from \code{pitdb_parse_bird_report_file}
 #'  containing elements \code{status, uploads, tag_reads, bad_recs}.
-#'  If optional elements \code{one_read, fakeGhost_reads, test_reads, web_reads} are included
-#'  they will be reported on too.
-#'@param sp_tags A dataframe that indicates the identity of test tags, known
-#'  (i.e., deployed) tag prefixes, and webserver_mode tag prefixes.
+#'@param ch  an open connection to the database. If not null, tag_read records are further categorized
+#'  as \code{webserver tags, test tags, unknown tags,} and possible \code{ghostreads}.
 #'
-#'  The dataframe must contain at least two columns: "Typ" and "Val", Where Typ has entries for at least
-#'  \code{test_tag, web_prefix, known_prefix}.
-
-#'@details This function takes the output from \code{pitdb_parse_bird_report_file} optionally
-#'  augmented by elements further characterizing  \code{tag_reads} (i.e.,  \code{one_read, fakeGhost_reads, test_reads, web_reads})
+#'@details This function takes the output from \code{pitdb_parse_bird_report_file}
 #'  and summarizes the numbers of each type of info contained in the parsed file.
 #'
 #'@section Author: Dave Fifield
 #'
 #'############# UNFINISHED ####################
-pitdb_summary_parsed_file <- function(dat, show_data = FALSE){
+pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
+
+  # All tag_read records.
+  if (nrow(dat$uploads) > 0) {
+    tags <- unique(dat$tag_reads$tagID)
+    tags <- tags[order(tags)]
+    boards <- unique(dat$tag_reads$BoardID)
+    boards <- boards[order(boards)]
+
+    one_reads <- dplyr::filter(dat$tag_reads, numread == 1)
+    if(nrow(one_reads) > 0){
+      one_read_tags <- unique(one_reads$tagID)
+      one_read_tags <- one_read_tags[order(one_read_tags)]
+    }
+
+    cat(paste0(nrow(dat$tag_reads), " tag reads from ", length(tags), " tags"))
+    if (verbose) print(table(dat$tag_reads$tagID))
+
+    cat(paste0("\n\tfrom ", length(boards), " boards (",
+        paste0(boards, collapse = ", "),  ")\n\tspanning dates ",
+        paste0(range(dat$tag_reads$dateTime), collapse = " to "), "\n",
+        "\t", nrow(one_reads), " tag records involved a single read of the tag."))
+    if (verbose) {
+      print(table(one_reads$tagID))
+
+      cat("Tag read records:")
+      dat$tag_reads %>% print(n = nrow(.))
+    }
+  } else print("No tag_read records.")
 
 
-  # normal reads. This will not include web tags or test_tags
-  tags <- unique(dat$tag_reads$tagID)
-  tags <- tags[order(tags)]
+  # Dig deeper and chategorize tag reads according to info in the database.
+  if (!is.null(ch)) {
+    sp_tags <- RODBC::sqlFetch(ch, "lkpSpecialTags", as.is = T)
+    known_tags <- RODBC::sqlFetch(ch, "tblTags", as.is = T)
+  }
 
-  cat(paste0(nrow(dat$tag_reads), " tag reads ", length(tags), " tags (",
-             paste0(tags, collapse = ","), ") with prefix(es) ",
-             paste0(known_prefix, collapse = ", "),  " spanning dates ",
-             paste0(range(reads$dateTime), collapse = " to "), ".\n"))
-  print(reads)
+  ############################
+  ## need to decide what to do here....
+  ## deal with known tags, unknown tags, ghost reads, speacial tags.
+  # known tags (needs tblTags)
+  # web tags (needs lkpSpecialTags)
+  # test tags (needs lkpSpecialTags)
+  # unknown tags (needs tblTags and lkpSpecial tags)
+  # ghostreads - any unknown tag with num_read == 1
 
   reads <- dplyr::filter(tag_reads, substr(tagID, 1, 5) %in% known_prefix, !(tagID %in% test_tags))
-
-  # initialize. XXX Note the awful mixing of variable naming schemes.
-  bad_recs <- NA
-  fakeGhost <- NA
-
-  if (is.null(sp_tags))
-    stop("Argument sp_tags has not been provided.")
-
-  # Split out special tags
-  test_tags <- dplyr::filter(sp_tags, Typ == "test_tag")$Val
-  known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
-  web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
-
-boards <- unique(statuses$BoardID)
-  boards <- boards[order(boards)]
-  if (verbose){
-    cat(paste0(nrow(statuses), " status entries from  ",
-             paste0(range(statuses$dateTime), collapse = " to "), "\n",
-             paste0("\tfrom ",  length(boards), " boards: ", paste0(boards[order(boards)], collapse = ", "), "\n")))
-  }
-
-
-  if (verbose){
-    cat(paste0(nrow(uploads), " upload records\n"))
-    if(nrow(uploads) > 0) print(uploads)
-  }
-
-
-  cat(paste0(nrow(dat$bad_recs), " bad records.\n"))
-  if (show_data) print(bad_recs)
-
   # report on 1-read detections reads
-  one_read <- dplyr::filter(tag_reads, numread == 1)
+
   if (verbose) cat(paste0(nrow(one_read), " apparent ghost reads out of ", nrow(tag_reads), "\n"))
 
   # Ghost reads
@@ -217,7 +213,49 @@ boards <- unique(statuses$BoardID)
     if(nrow(web) > 0) print(web)
   }
 
+  # initialize. XXX Note the awful mixing of variable naming schemes.
+  fakeGhost <- NA
 
+  if (is.null(sp_tags))
+    stop("Argument sp_tags has not been provided.")
+
+  # Split out special tags
+  test_tags <- dplyr::filter(sp_tags, Typ == "test_tag")$Val
+  known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
+  web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
+
+  ######################
+
+  # status entries
+  if (nrow(dat$statuses) > 0) {
+    boards <- unique(dat$statuses$BoardID)
+    boards <- boards[order(boards)]
+    cat(paste0(nrow(dat$statuses), " status entries from ", length(boards), " boards (",
+        paste0(boards, collapse = ", "), ")\n\tspanning dates ",
+        paste0(range(dat$statuses$dateTime), collapse = " to "), "\n"))
+    if (verbose) dat$statuses %>% print(n = nrow(.))
+  } else print("No status records.")
+
+
+  # uploads
+  if (nrow(dat$uploads) > 0) {
+    boards <- unique(dat$uploads$BoardID)
+    boards <- boards[order(boards)]
+    cat(paste0(nrow(dat$uploads), " upload entries from ", length(boards), " boards (",
+        paste0(boards, collapse = ", "), ")\n\tspanning dates ",
+        paste0(range(dat$uploads$dateTime), collapse = " to "), "\n"))
+    if (verbose) dat$uploads %>% print(n = nrow(.))
+  } else print("No uploads")
+
+  # Bad records
+  if (nrow(dat$bad_recs) > 0) {
+    boards <- unique(dat$bad_recs$BoardID)
+    boards <- boards[order(boards)]
+    cat(paste0(nrow(dat$bad_recs), " bad records from ", length(boards), " boards (",
+        paste0(boards, collapse = ", "), ")\n\tspanning fetch dates ",
+        paste0(range(dat$bad_recs$fetchDateTime), collapse = " to "), "\n"))
+    if (verbose) dat$bad_recs %>% print(n = nrow(.))
+  } else print("No bad records")
 }
 
 
