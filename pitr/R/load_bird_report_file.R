@@ -4,11 +4,6 @@
 #'@description The function will parse a bird report datafile.
 #'
 #'@param filename Path to file containing data dumped from a monitor board.
-#'@param sp_tags A dataframe that indicates the identity of test tags, known
-#'  (i.e., deployed) tag prefixes, and webserver_mode tag prefixes.
-#'
-#'  The dataframe must contain at least two columns: "Typ" and "Val", Where Typ has entries for at least
-#'  \code{test_tag, web_prefix, known_prefix}.
 #'
 #'@param verbose Print information regarding numbers of status records, tag read
 #'  records, mark_upload records, # of boards reporting, and ghost reads.
@@ -17,10 +12,14 @@
 #'  from a monitor board. These files are typically downloaded via direct cable
 #'  connection or via email from a Raspberry Pi base station.
 #'
-#'  In most cases \code{inputfile} will contain info from multiple monitor
+#'  In most cases \code{filename} will contain info from multiple monitor
 #'  boards, e.g., the daily files emailed from a Raspberry Pi base station.
 #'
-#'  talk about format of inputfile somewhere
+#'  Does not attempt to further split tag_reads into normal reads, webserver tags, ghost tags, etc.
+#'  since this requires info on known tags/prefixes, etc from the database and it is desirable to
+#'  have this function work whether database is available or not.
+#'
+#'  talk about format of filename somewhere
 #'
 #'  deal with different data formats in 2016 and 2017
 #'
@@ -35,8 +34,131 @@
 #'@return Returns TRUE on success and FALSE on error.
 #'@section Author: Dave Fifield
 #'
-pitdb_process_bird_report_file <- function(filename, sp_tags = NULL, verbose = F) {
+pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 
+
+  # initialize. XXX Note the awful mixing of variable naming schemes.
+  bad_recs <- NA
+  fakeGhost <- NA
+
+
+  if (verbose) {
+    cat(paste0("==========================================================================================",
+             "\n\nProcessing ", basename(filename), "\n"))
+  }
+
+  dat <- as.data.frame(readLines(con = filename), stringsAsFactors = F)
+  names(dat) <- "string"
+
+  if (verbose)  cat(paste0(nrow(dat), " rows read\n"))
+
+  # Nothing else to do
+  if (nrow(dat) == 0)
+    return(NULL)
+
+  # Detect no updates. This is a report file with no data.
+  if (nrow(dat) == 1 && (grep("no updates", dat[1,]) == 1)){
+    if (verbose) cat('File contains "no updates".\n')
+    return(NULL)
+  }
+
+  # Detect bad records. These were due to a bug in mqtt upload that send invalid data. Fixed in V1.2 of rfid_logger.
+  bad_recs_idx <- grep("Bad record", dat$string)
+  if (length(bad_recs_idx) != 0) {
+    bad_recs <- tidyr::separate(dplyr::slice(dat, bad_recs_idx), "string", sep = "[ ]+",
+                                into = c("FDate", "FTime", "WiFiID",  "BoardID"), extra = "drop", convert = T)
+    bad_recs$fetchDateTime <- as.POSIXct(strptime(paste0(bad_recs$FDate, " ", bad_recs$FTime), format = "%Y-%m-%d %H:%M:%S"))
+    bad_recs <- dplyr::select(bad_recs, -FDate, -FTime)
+  }
+
+  # Extract statuses
+  statuses <- as.data.frame(sub(" S ", " ", dat[,1]))
+  names(statuses) <- "string"
+
+  # note this line figures out which rows to keep in the slice by looking for
+  # the initial "S " in dat, since it has already been removed from statuses.
+  statuses <- tidyr::separate(dplyr::slice(statuses, grep(" S ", dat$string)), "string",
+                   into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "VCoin", "Vin", "MCUTemp", "Freq"), sep = "[ ]+",
+                   convert = T)
+
+  statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))
+  statuses$fetchDateTime <- as.POSIXct(strptime(paste0(statuses$FDate, " ", statuses$FTime), format = "%Y-%m-%d %H:%M:%S"))
+  statuses$Date <- NULL
+  statuses$Time <- NULL
+  statuses$FDate <- NULL
+  statuses$FTime <- NULL
+
+  #extract tag reads
+  tag_reads <- as.data.frame(sub(" T ", " ", dat[,1]))
+  names(tag_reads) <- "string"
+
+  tag_reads <- tidyr::separate(dplyr::slice(tag_reads, grep(" T ", dat$string)), "string",
+                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"), sep = "[ ]+",
+                     convert = T)
+  tag_reads$dateTime <- as.POSIXct(strptime(paste0(tag_reads$Date, " ", tag_reads$Time), format = "%Y-%m-%d %H:%M:%S"))
+  tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+  tag_reads$Date <- NULL
+  tag_reads$Time <- NULL
+  tag_reads$FDate <- NULL
+  tag_reads$FTime <- NULL
+
+  #extract mark_upload records
+  uploads <- as.data.frame(sub(" M ", " ", dat[,1]))
+  names(uploads) <- "string"
+
+  uploads <- tidyr::separate(dplyr::slice(uploads, grep(" M ", dat$string)), "string",
+                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "prev_index"), sep = "[  ]+",
+                     convert = T)
+  uploads$dateTime <- as.POSIXct(strptime(paste0(uploads$Date, " ", uploads$Time), format = "%Y-%m-%d %H:%M:%S"))
+  uploads$fetchDateTime <- as.POSIXct(strptime(paste0(uploads$FDate, " ", uploads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+  uploads$Date <- NULL
+  uploads$Time <- NULL
+  uploads$FDate <- NULL
+  uploads$FTime <- NULL
+
+  # return value
+  list(tag_reads = tag_reads,status = statuses, uploads = uploads, bad_recs = bad_recs)
+}
+
+
+
+
+#'@export
+#'@title Print a summary of data parsed from a Raspberry Pi report file
+#'
+#'@description The function will summarize data parsed from a a bird report datafile.
+#'
+#'@param dat List (typically returned from \code{pitdb_parse_bird_report_file}
+#'  containing elements \code{status, uploads, tag_reads, bad_recs}.
+#'  If optional elements \code{one_read, fakeGhost_reads, test_reads, web_reads} are included
+#'  they will be reported on too.
+#'@param sp_tags A dataframe that indicates the identity of test tags, known
+#'  (i.e., deployed) tag prefixes, and webserver_mode tag prefixes.
+#'
+#'  The dataframe must contain at least two columns: "Typ" and "Val", Where Typ has entries for at least
+#'  \code{test_tag, web_prefix, known_prefix}.
+
+#'@details This function takes the output from \code{pitdb_parse_bird_report_file} optionally
+#'  augmented by elements further characterizing  \code{tag_reads} (i.e.,  \code{one_read, fakeGhost_reads, test_reads, web_reads})
+#'  and summarizes the numbers of each type of info contained in the parsed file.
+#'
+#'@section Author: Dave Fifield
+#'
+#'############# UNFINISHED ####################
+pitdb_summary_parsed_file <- function(dat, show_data = FALSE){
+
+
+  # normal reads. This will not include web tags or test_tags
+  tags <- unique(dat$tag_reads$tagID)
+  tags <- tags[order(tags)]
+
+  cat(paste0(nrow(dat$tag_reads), " tag reads ", length(tags), " tags (",
+             paste0(tags, collapse = ","), ") with prefix(es) ",
+             paste0(known_prefix, collapse = ", "),  " spanning dates ",
+             paste0(range(reads$dateTime), collapse = " to "), ".\n"))
+  print(reads)
+
+  reads <- dplyr::filter(tag_reads, substr(tagID, 1, 5) %in% known_prefix, !(tagID %in% test_tags))
 
   # initialize. XXX Note the awful mixing of variable naming schemes.
   bad_recs <- NA
@@ -50,93 +172,31 @@ pitdb_process_bird_report_file <- function(filename, sp_tags = NULL, verbose = F
   known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
   web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
 
-  cat(paste0("==========================================================================================",
-             "\n\nProcessing ", basename(filename), "\n"))
-
-  dat <- as.data.frame(readLines(con = filename), stringsAsFactors = F)
-  names(dat) <- "string"
-
-  cat(paste0(nrow(dat), " rows read\n"))
-
-  # Nothing else to do
-  if (nrow(dat) == 0)
-    return(-1)
-
-  # Detect no updates. This is a report file with no data.
-  if (nrow(dat) == 1 && (grep("no updates", dat[1,]) == 1)){
-    cat('File contains "no updates".\n')
-    return(NULL)
-  }
-
-  # Detect bad records. These were due to a bug in mqtt upload that send invalid data. Fixed in V1.2 of rfid_logger.
-  bad_recs_idx <- grep("Bad record", dat$string)
-  if (length(bad_recs_idx) != 0) {
-    bad_recs <- dat[bad_recs_idx,]
-    if(verbose){
-      cat(paste0(length(bad_recs_idx), " bad records.\n"))
-      print(bad_recs)
-    }
-  }
-
-  # Extract statuses
-  sdat <- as.data.frame(sub(" S ", " ", dat[,1]))
-  names(sdat) <- "string"
-
-  # note this line figures out which rows to keep in the slice by looking for
-  # the initial "S " in dat, since it has already been removed from sdat.
-  sdat <- tidyr::separate(dplyr::slice(sdat, grep(" S ", dat$string)), "string",
-                   into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "VCoin", "Vin", "MCUTemp", "Freq"), sep = "[  ]+",
-                   convert = T)
-
-  sdat$dateTime <- as.POSIXct(strptime(paste0(sdat$Date, " ", sdat$Time), format = "%Y-%m-%d %H:%M:%S"))
-  sdat$fetchDateTime <- as.POSIXct(strptime(paste0(sdat$FDate, " ", sdat$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  sdat$Date <- NULL
-  sdat$Time <- NULL
-  sdat$FDate <- NULL
-  sdat$FTime <- NULL
-
-  boards <- unique(sdat$BoardID)
+boards <- unique(statuses$BoardID)
   boards <- boards[order(boards)]
   if (verbose){
-    cat(paste0(nrow(sdat), " status entries from  ",
-             paste0(range(sdat$dateTime), collapse = " to "), "\n",
+    cat(paste0(nrow(statuses), " status entries from  ",
+             paste0(range(statuses$dateTime), collapse = " to "), "\n",
              paste0("\tfrom ",  length(boards), " boards: ", paste0(boards[order(boards)], collapse = ", "), "\n")))
   }
 
-  #extract tag reads
-  tagDat <- as.data.frame(sub(" T ", " ", dat[,1]))
-  names(tagDat) <- "string"
 
-  tagDat <- tidyr::separate(dplyr::slice(tagDat, grep(" T ", dat$string)), "string",
-                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"), sep = "[  ]+",
-                     convert = T)
-  tagDat$dateTime <- as.POSIXct(strptime(paste0(tagDat$Date, " ", tagDat$Time), format = "%Y-%m-%d %H:%M:%S"))
-  tagDat$fetchDateTime <- as.POSIXct(strptime(paste0(tagDat$FDate, " ", tagDat$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  tagDat$Date <- NULL
-  tagDat$Time <- NULL
-  tagDat$FDate <- NULL
-  tagDat$FTime <- NULL
-
-  # normal reads. This will not include web tags or test_tags
-  reads <- dplyr::filter(tagDat, substr(tagID, 1, 5) %in% known_prefix, !(tagID %in% test_tags))
-  tags <- unique(reads$tagID)
-  tags <- tags[order(tags)]
-
-  if (verbose && nrow(reads) > 0){
-    cat(paste0("\n", nrow(reads), " reads from ", length(tags), " tags (",
-               paste0(tags, collapse = ","), ") with prefix(es) ",
-               paste0(known_prefix, collapse = ", "),  " spanning dates ",
-               paste0(range(reads$dateTime), collapse = " to "), ".\n"))
-    print(reads)
+  if (verbose){
+    cat(paste0(nrow(uploads), " upload records\n"))
+    if(nrow(uploads) > 0) print(uploads)
   }
 
+
+  cat(paste0(nrow(dat$bad_recs), " bad records.\n"))
+  if (show_data) print(bad_recs)
+
   # report on 1-read detections reads
-  one_read <- dplyr::filter(tagDat, numread == 1)
-  if (verbose) cat(paste0(nrow(one_read), " apparent ghost reads out of ", nrow(tagDat), "\n"))
+  one_read <- dplyr::filter(tag_reads, numread == 1)
+  if (verbose) cat(paste0(nrow(one_read), " apparent ghost reads out of ", nrow(tag_reads), "\n"))
 
   # Ghost reads
   if (nrow(one_read) > 0) {
-    fakeGhost <- dplyr::filter(tagDat, numread == 1, substr(tagID, 1, 5) %in% known_prefix)
+    fakeGhost <- dplyr::filter(tag_reads, numread == 1, substr(tagID, 1, 5) %in% known_prefix)
     if (verbose) {
       cat(paste0(nrow(fakeGhost), " of these may be real tags with 1 read each.\n"))
       if(nrow(fakeGhost) > 0) print(fakeGhost)
@@ -144,40 +204,97 @@ pitdb_process_bird_report_file <- function(filename, sp_tags = NULL, verbose = F
   }
 
   # test tag reads
-  test <- dplyr::filter(tagDat, tagID %in% test_tags)
+  test <- dplyr::filter(tag_reads, tagID %in% test_tags)
   if (verbose) {
     cat(paste0("\n", nrow(test), " test tag reads.\n"))
     if(nrow(test) > 0) print(test)
   }
 
   # web tag reads
-  web <- dplyr::filter(tagDat, numread == 1, substr(tagID, 1, 4) == web_prefix)
+  web <- dplyr::filter(tag_reads, numread == 1, substr(tagID, 1, 4) == web_prefix)
   if (verbose){
     cat(paste0(nrow(web), " webserver mode tags\n"))
     if(nrow(web) > 0) print(web)
   }
 
-  #extract mark_upload records
-  markDat <- as.data.frame(sub(" M ", " ", dat[,1]))
-  names(markDat) <- "string"
 
-  markDat <- tidyr::separate(dplyr::slice(markDat, grep(" M ", dat$string)), "string",
-                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "prev_index"), sep = "[  ]+",
-                     convert = T)
-  markDat$dateTime <- as.POSIXct(strptime(paste0(markDat$Date, " ", markDat$Time), format = "%Y-%m-%d %H:%M:%S"))
-  markDat$fetchDateTime <- as.POSIXct(strptime(paste0(markDat$FDate, " ", markDat$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  markDat$Date <- NULL
-  markDat$Time <- NULL
-  markDat$FDate <- NULL
-  markDat$FTime <- NULL
-
-  if (verbose){
-    cat(paste0(nrow(markDat), " upload records\n"))
-    if(nrow(markDat) > 0) print(markDat)
-  }
-
-  # return value
-  return(list(boards = boards, status = sdat, uploads = markDat, tag_reads = reads, web_tags = web, test_tags = test,
-              poss_ghost = one_read, fake_ghost = fakeGhost, bad_recs = bad_recs))
 }
 
+
+
+#'@export
+#'@title Load a PIT tag datafile into a database.
+#'
+#'@description The function will load a datafile downloaded from a PIT tag
+#'  monitor board into a Microsoft Access database.
+#'@param ch Channel to open database returned from \code{pitdb.open}.
+#'@param filename Path to file containing data dumped from a monitor board.
+#'@param detect_non_reporters Produce warning message for any deployed boards
+#'  not reporting data in \code{filename}.
+#'@param detect_ghost_reads Produce a warning for potential ghost reads. See
+#'  \code{Sanity checks} below.
+#'
+#'@details This function reads a text file of records that have been extracted
+#'  from a monitor board and imports them into the database indicated by
+#'  \code{channel}. These files are typically downloaded via direct cable
+#'  connection or via email from a Raspberry Pi base station.
+#'
+#'  In most cases \code{filename} will contain info from multiple monitor
+#'  boards, e.g., the daily files emailed from a Raspberry Pi base station. In
+#'  this case, it is helpful to know which deployed boards failed to send their
+#'  data that day. If  \code{detect_non_reporters} = \code{TRUE},
+#'  \code{pitdb_load_file} will issue a warning message listing any boards that
+#'  are currently deployed (as defined in tblBoardDeploy in the Access database)
+#'  but did not provide any data in \code{filename}.
+#'
+#'  What it does in the database......
+#'
+#'  inserts records one by one in case an insert fails, prints warning regarding
+#'  failed inserts.
+#'
+#'  talk about format of filename somewhere
+#'
+#'  deal with different data formats in 2016 and 2017
+#'
+#'  deal with conversion of voltages and MCU temperature
+#'
+#'  prints a summary of what was done (consider how this is done: jsut via print
+#'  or does it return a summary object which has a print method...probably just print it - easier).
+#'
+#'  Decide what to do about unknown tag IDs (legitimate and ghost reads) since the
+#'  database currently requires all tags in tblTagRead table to exist apriori in tblTags.
+#'  Should they go in some other table, or just be discarded. Put them in failed load table.
+#'
+#'  talk about creation of a tblImports record.
+#'
+#'  deal with "Bad record" rows
+#'
+#'@section Sanity checks:
+#'
+#'  \itemize{
+#'  \item detects any board not reporting if \code{detect_non_reporters} = TRUE.
+#'  \item issues a warning (and fails to add record) if an attempt is made to import a record that already exists.
+#'  \item issues a warning (and fails to add record) if a tag_read record refers to an
+#'  unknown tag ID. This could be either a legitimate tag that has not been
+#'  added to the database or a so-called \emph{ghost read}. Ghost reads are
+#'  almost entirely eliminated as of rfid board software version 1.1, since only
+#'  tags with known prefixes (compiled in) are recorded. However, it is remotely
+#'  possible that a ghost read with a known prefix could occur. The number of
+#'  reads field is always 1 (??) in a ghost read, but rarely so for a true tag
+#'  read. Setting \code{detect_ghost_reads} = \code{TRUE} will issue a warning
+#'  for any reads of valid tag IDs where the number of reads is 1. }
+#'@return Returns TRUE on success and FALSE on error.
+#'@section Author: Dave Fifield
+#'
+pitdb_load_file <- function(ch, filename, detect_non_reporters = TRUE,
+                            detect_ghost_reads = TRUE){
+
+  # call pitdb_parse_bird_report_file
+
+  # call summary of reads if desired??
+
+  # get tables needed for sanity checks from DB.
+
+  # call summary of data loading??
+
+}
