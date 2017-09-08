@@ -3,7 +3,7 @@
 #'
 #' blah blah blah
 #'
-#' @section  Data formats for PIT tag monitor boards.
+#' Data formats for PIT tag monitor boards.
 #'
 #'  In most cases \code{inputfile} will contain info from multiple monitor
 #'  boards, e.g., the daily files emailed from a Raspberry Pi base station.
