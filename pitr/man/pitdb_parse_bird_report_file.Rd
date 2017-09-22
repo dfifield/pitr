@@ -13,7 +13,8 @@ pitdb_parse_bird_report_file(filename, verbose = FALSE)
 records, mark_upload records, # of boards reporting, and ghost reads.}
 }
 \value{
-Returns TRUE on success and FALSE on error.
+Returns a list with elements \code{tag_reads, statuses, uploads, bad_recs}. Individual elements of the list will be
+null if \code{filename} doesn't contain any records of that type.
 }
 \description{
 The function will parse a bird report datafile.
