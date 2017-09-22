@@ -32,26 +32,28 @@
 #'
 #'  deal with "Bad record" rows
 #'
-#'@return Returns TRUE on success and FALSE on error.
+#'@return Returns a list with elements \code{tag_reads, statuses, uploads, bad_recs}. Individual elements of the list will be
+#'null if \code{filename} doesn't contain any records of that type.
 #'@section Author: Dave Fifield
 #'
 pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 
-
+  # init
+  retval <- list(tag_reads = NULL, statuses = NULL, uploads = NULL, bad_recs = NULL)
 
   dat <- as.data.frame(readLines(con = filename), stringsAsFactors = F)
   names(dat) <- "string"
 
-  if (verbose) cat(paste0("Processing ", basename(filename), ", ", nrow(dat), " rows read\n"))
+  if (verbose) cat(paste0("\n######################################\nProcessing ", basename(filename), ", ", nrow(dat), " rows read\n"))
 
   # Nothing else to do?
   if (nrow(dat) == 0)
-    return(NULL)
+    return(retval)
 
   # Detect no updates. This is a report file with no data.
   if (nrow(dat) == 1 && (grep("no updates", dat[1,]) == 1)){
     if (verbose) cat('File contains "no updates".\n')
-    return(NULL)
+    return(retval)
   }
 
   # Detect bad records. These were due to a bug in mqtt upload that send invalid data. Fixed in V1.2 of rfid_logger.
@@ -61,6 +63,7 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
                                 into = c("FDate", "FTime", "WiFiID",  "BoardID"), extra = "drop", convert = T)
     bad_recs$fetchDateTime <- as.POSIXct(strptime(paste0(bad_recs$FDate, " ", bad_recs$FTime), format = "%Y-%m-%d %H:%M:%S"))
     bad_recs <- dplyr::select(bad_recs, -FDate, -FTime)
+    retval$bad_recs <- bad_recs
   }
 
   # Extract statuses
@@ -72,13 +75,15 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
   statuses <- tidyr::separate(dplyr::slice(statuses, grep(" S ", dat$string)), "string",
                    into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "VCoin", "Vin", "MCUTemp", "Freq"), sep = "[ ]+",
                    convert = T)
-
-  statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))
-  statuses$fetchDateTime <- as.POSIXct(strptime(paste0(statuses$FDate, " ", statuses$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  statuses$Date <- NULL
-  statuses$Time <- NULL
-  statuses$FDate <- NULL
-  statuses$FTime <- NULL
+  if(nrow(statuses) > 0) {
+    statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))
+    statuses$fetchDateTime <- as.POSIXct(strptime(paste0(statuses$FDate, " ", statuses$FTime), format = "%Y-%m-%d %H:%M:%S"))
+    statuses$Date <- NULL
+    statuses$Time <- NULL
+    statuses$FDate <- NULL
+    statuses$FTime <- NULL
+    retval$statuses <- statuses
+  }
 
   #extract tag reads
   tag_reads <- as.data.frame(sub(" T ", " ", dat[,1]))
@@ -87,12 +92,15 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
   tag_reads <- tidyr::separate(dplyr::slice(tag_reads, grep(" T ", dat$string)), "string",
                      into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"), sep = "[ ]+",
                      convert = T)
-  tag_reads$dateTime <- as.POSIXct(strptime(paste0(tag_reads$Date, " ", tag_reads$Time), format = "%Y-%m-%d %H:%M:%S"))
-  tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  tag_reads$Date <- NULL
-  tag_reads$Time <- NULL
-  tag_reads$FDate <- NULL
-  tag_reads$FTime <- NULL
+  if(nrow(tag_reads) > 0) {
+    tag_reads$dateTime <- as.POSIXct(strptime(paste0(tag_reads$Date, " ", tag_reads$Time), format = "%Y-%m-%d %H:%M:%S"))
+    tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+    tag_reads$Date <- NULL
+    tag_reads$Time <- NULL
+    tag_reads$FDate <- NULL
+    tag_reads$FTime <- NULL
+    retval$tag_reads <- tag_reads
+  }
 
   #extract mark_upload records
   uploads <- as.data.frame(sub(" M ", " ", dat[,1]))
@@ -101,15 +109,18 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
   uploads <- tidyr::separate(dplyr::slice(uploads, grep(" M ", dat$string)), "string",
                      into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "prev_index"), sep = "[  ]+",
                      convert = T)
-  uploads$dateTime <- as.POSIXct(strptime(paste0(uploads$Date, " ", uploads$Time), format = "%Y-%m-%d %H:%M:%S"))
-  uploads$fetchDateTime <- as.POSIXct(strptime(paste0(uploads$FDate, " ", uploads$FTime), format = "%Y-%m-%d %H:%M:%S"))
-  uploads$Date <- NULL
-  uploads$Time <- NULL
-  uploads$FDate <- NULL
-  uploads$FTime <- NULL
+  if (nrow(uploads) > 0){
+    uploads$dateTime <- as.POSIXct(strptime(paste0(uploads$Date, " ", uploads$Time), format = "%Y-%m-%d %H:%M:%S"))
+    uploads$fetchDateTime <- as.POSIXct(strptime(paste0(uploads$FDate, " ", uploads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+    uploads$Date <- NULL
+    uploads$Time <- NULL
+    uploads$FDate <- NULL
+    uploads$FTime <- NULL
+    retval$uploads <- uploads
+  }
 
   # return value
-  list(tag_reads = tag_reads,statuses = statuses, uploads = uploads, bad_recs = bad_recs)
+  retval
 }
 
 
@@ -130,8 +141,18 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 #'
 pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 
+  ##### Overall summary ####
+  boards <- unique(unlist(dat %>% purrr::discard(is.null) %>% purrr::map("BoardID")))
+
+  if (is.null(boards)) {
+    cat("No data to summarize.")
+    return()
+  }
+
+  cat(paste0(length(boards), " boards with data: ", paste0(boards <- boards[order(boards)], collapse = ", "), "\n"))
+
   #####  All tag_read records #####
-  if (nrow(dat$tag_reads) > 0) {
+  if (!is.null(dat$tag_reads)) {
     tags <- unique(dat$tag_reads$tagID)
     tags <- tags[order(tags)]
     boards <- unique(dat$tag_reads$BoardID)
@@ -146,15 +167,14 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
     }
 
     cat(paste0(nrow(dat$tag_reads), " tag reads from ", length(tags), " tags"))
-    if (verbose) print(table(dat$tag_reads$tagID))
+    print(table(dat$tag_reads$tagID))
 
     cat(paste0("\n\tfrom ", length(boards), " boards (",
         paste0(boards, collapse = ", "),  ")\n\tspanning dates ",
         paste0(range(dat$tag_reads$dateTime), collapse = " to "), "\n",
         "\t", nrow(one_reads), " tag records involved a single read of the tag."))
+    print(table(one_reads$tagID))
     if (verbose) {
-      print(table(one_reads$tagID))
-
       cat("Tag read records:")
       dat$tag_reads %>% print(n = nrow(.))
     }
@@ -189,16 +209,14 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
         }
 
         cat(paste0("\n", nrow(known_tag_reads), " of these reads were from known tags, n = ", length(tags), " tags"))
-        if (verbose) print(table(known_tag_reads$tagID))
+        print(table(known_tag_reads$tagID))
 
         cat(paste0("\n\tfrom ", length(boards), " boards (",
             paste0(boards, collapse = ", "),  ")\n\tspanning dates ",
             paste0(range(known_tag_reads$dateTime), collapse = " to "), "\n",
             "\t", nrow(one_reads), " known tag records involved a single read of the tag."))
-
+        print(table(one_reads$tagID))
         if (verbose) {
-          print(table(one_reads$tagID))
-
           cat("Known tag read records:")
           known_tag_reads %>% print(n = nrow(.))
         }
@@ -210,7 +228,7 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
       web <- dplyr::filter(dat$tag_reads, substr(tagID, 1, 4) == web_prefix)
       if (nrow(web) > 0) {
         cat(paste0("\n", nrow(web), " webserver mode tags\n"))
-        if (verbose) print(table(web$tagID))
+        print(table(web$tagID))
       } else {
         cat("\n0 webserver tag reads.")
       }
@@ -220,7 +238,7 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
       test <- dplyr::filter(dat$tag_reads, tagID %in% test_tags)
       if (nrow(test) > 0) {
         cat(paste0("\n", nrow(test), " test tags\n"))
-        if (verbose) print(table(test$tagID))
+        print(table(test$tagID))
       } else {
         cat("\n0 test tag reads.")
       }
@@ -234,7 +252,7 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
         boards <- boards[order(boards)]
 
         cat(paste0("\n", nrow(ukn), " unknown tag reads from ", length(tags)," tags"))
-        if (verbose) print(table(ukn$tagID))
+        print(table(ukn$tagID))
         cat(paste0("\n\tfrom ", length(boards), " boards (",
             paste0(boards, collapse = ", "),  ")\n\tspanning dates ",
             paste0(range(ukn$dateTime), collapse = " to "), "\n"))
@@ -248,40 +266,40 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
       }
     } # end tag categorization
   } else {
-    print("No tag_read records.")
+    cat("No tag_read records.")
   }
 
 
   #### status entries #####
-  if (nrow(dat$statuses) > 0) {
+  if (!is.null(dat$statuses)) {
     boards <- unique(dat$statuses$BoardID)
     boards <- boards[order(boards)]
-    cat(paste0("\n", nrow(dat$statuses), " status entries from ", length(boards), " boards (",
+    cat(paste0("\n\n", nrow(dat$statuses), " status entries from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning dates ",
         paste0(range(dat$statuses$dateTime), collapse = " to "), "\n"))
     if (verbose) dat$statuses %>% print(n = nrow(.))
-  } else print("No status records.")
+  } else cat("\nNo status records.")
 
 
   ##### uploads #####
-  if (nrow(dat$uploads) > 0) {
+  if (!is.null(dat$uploads)) {
     boards <- unique(dat$uploads$BoardID)
     boards <- boards[order(boards)]
     cat(paste0("\n", nrow(dat$uploads), " upload entries from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning dates ",
         paste0(range(dat$uploads$dateTime), collapse = " to "), "\n"))
     if (verbose) dat$uploads %>% print(n = nrow(.))
-  } else print("No uploads")
+  } else cat("\nNo uploads")
 
   #### Bad records #####
-  if (nrow(dat$bad_recs) > 0) {
+  if (!is.null(dat$bad_recs)) {
     boards <- unique(dat$bad_recs$BoardID)
     boards <- boards[order(boards)]
     cat(paste0("\n", nrow(dat$bad_recs), " bad records from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning fetch dates ",
         paste0(range(dat$bad_recs$fetchDateTime), collapse = " to "), "\n"))
     if (verbose) dat$bad_recs %>% print(n = nrow(.))
-  } else print("No bad records")
+  } else cat("\nNo bad records")
 }
 
 
