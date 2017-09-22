@@ -19,3 +19,16 @@ pitdb_open <- function(pathname){
   #RODBC::odbcConnectAccess(pathname)
   RODBC::odbcDriverConnect(paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=", pathname))
 }
+
+
+#'@export
+#'@title Close a pit tag database
+#'
+#'@description The function will close the connection to the Access PIT tag database via ODBC.
+#'@param ch A open ODBC channel.
+#'@return Nothing
+#'@section Author: Dave Fifield
+#'
+pitdb_close <- function(ch){
+  RODBC::odbcClose(ch)
+}
