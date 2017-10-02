@@ -6,8 +6,7 @@
 #'
 #'@param filename Path to file containing data dumped from a monitor board.
 #'
-#'@param verbose Print information regarding numbers of status records, tag read
-#'  records, mark_upload records, # of boards reporting, and ghost reads.
+#'@param verbose If \code{TRUE}, print a banner for each processed file.
 #'
 #'@details This function reads a text file of records that have been extracted
 #'  from a monitor board. These files are typically downloaded via direct cable
@@ -133,13 +132,14 @@ pitdb_parse_bird_report_file <- function(filename, verbose = FALSE) {
 #'  containing elements \code{tag_reads, statuses, uploads, bad_recs}.
 #'@param ch  an open connection to the database. If not null, tag_read records are further categorized
 #'  as known_tags, webserver tags, test tags, and unknown tags.
+#'@param verbose If \code{TRUE}, print details of each record.
 #'
 #'@details This function takes the output from \code{pitdb_parse_bird_report_file}
 #'  and summarizes the numbers of each type of info contained in the parsed file.
 #'
 #'@section Author: Dave Fifield
 #'
-pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
+pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 
   ##### Overall summary ####
   boards <- unique(unlist(dat %>% purrr::discard(is.null) %>% purrr::map("BoardID")))
@@ -300,6 +300,8 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
         paste0(range(dat$bad_recs$fetchDateTime), collapse = " to "), "\n"))
     if (verbose) dat$bad_recs %>% print(n = nrow(.))
   } else cat("\nNo bad records")
+
+  invisible(dat)
 }
 
 
@@ -311,6 +313,10 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 #'  monitor board into a Microsoft Access database.
 #'@param ch Channel to open database returned from \code{pitdb.open}.
 #'@param filename Path to file containing data dumped from a monitor board.
+#'@param date Date on which the data was downloaded. Normally this is parsed
+#'  from the \code{filename} but it can be over-ridden with this argument.
+#'@param fetch_type How the data was fetched from the board. Valid values are
+#'  "WiFi" and "CableConnect".
 #'@param detect_non_reporters Produce warning message for any deployed boards
 #'  not reporting data in \code{filename}.
 #'@param detect_ghost_reads Produce a warning for potential ghost reads. See
@@ -327,7 +333,9 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 #'  data that day. If  \code{detect_non_reporters} = \code{TRUE},
 #'  \code{pitdb_load_file} will issue a warning message listing any boards that
 #'  are currently deployed (as defined in tblBoardDeploy in the Access database)
-#'  but did not provide any data in \code{filename}.
+#'  but did not provide any data in \code{filename}. The meaning of "currently"
+#'  in the last sentence means "on the date that the data was download" which
+#'  comes from the filename but which can be overridded by \code{date}.
 #'
 #'  What it does in the database......
 #'
@@ -341,11 +349,13 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 #'  deal with conversion of voltages and MCU temperature
 #'
 #'  prints a summary of what was done (consider how this is done: jsut via print
-#'  or does it return a summary object which has a print method...probably just print it - easier).
+#'  or does it return a summary object which has a print method...probably just
+#'  print it - easier).
 #'
-#'  Decide what to do about unknown tag IDs (legitimate and ghost reads) since the
-#'  database currently requires all tags in tblTagRead table to exist apriori in tblTags.
-#'  Should they go in some other table, or just be discarded. Put them in failed load table.
+#'  Decide what to do about unknown tag IDs (legitimate and ghost reads) since
+#'  the database currently requires all tags in tblTagRead table to exist
+#'  apriori in tblTags. Should they go in some other table, or just be
+#'  discarded. Put them in failed load table.
 #'
 #'  talk about creation of a tblImports record.
 #'
@@ -353,10 +363,10 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 #'
 #'@section Sanity checks:
 #'
-#'  \itemize{
-#'  \item detects any board not reporting if \code{detect_non_reporters} = TRUE.
-#'  \item issues a warning (and fails to add record) if an attempt is made to import a record that already exists.
-#'  \item issues a warning (and fails to add record) if a tag_read record refers to an
+#'  \itemize{ \item detects any board not reporting if
+#'  \code{detect_non_reporters} = TRUE. \item issues a warning (and fails to add
+#'  record) if an attempt is made to import a record that already exists. \item
+#'  issues a warning (and fails to add record) if a tag_read record refers to an
 #'  unknown tag ID. This could be either a legitimate tag that has not been
 #'  added to the database or a so-called \emph{ghost read}. Ghost reads are
 #'  almost entirely eliminated as of rfid board software version 1.1, since only
@@ -368,15 +378,30 @@ pitdb_summarize_parsed_file <- function(dat, verbose = FALSE, ch = NULL){
 #'@return Returns TRUE on success and FALSE on error.
 #'@section Author: Dave Fifield
 #'
-pitdb_load_file <- function(ch, filename, detect_non_reporters = TRUE,
+pitdb_load_file <- function(ch, filename, date_ = NULL, fetch_type = "WiFi", detect_non_reporters = TRUE,
                             detect_ghost_reads = TRUE){
 
-  # call pitdb_parse_bird_report_file
+  # get date of download
+  date_ <- date_ %||% parse_date_from_string(filename)
 
-  # call summary of reads if desired??
+  # Parse file and give summary
+  dat <- pitdb_parse_bird_report_file(filename, verbose = T) %>%  pitdb_summarize_parsed_file(ch = ch, verbose = F)
 
-  # get tables needed for sanity checks from DB.
+  # Look up fetch_type
+  strsql <- paste0("SELECT lkpFetchType.FetchTypeID, lkpFetchType.FetchTypeText FROM lkpFetchType WHERE ",
+                   "(((lkpFetchType.FetchTypeText)='", fetch_type, "'));");
+  res <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned %>% ensure_one_row_returned
+  fetch_type_ID <- res$FetchTypeID
 
-  # call summary of data loading??
+  # create a tblImports record
+  strsql <- paste0("INSERT INTO tblImports ( [DateTime], [Filename], [FetchType] ) SELECT ",
+                            "#", format(lubridate::now(), format = "%Y-%b-%d %H:%M:%S"), "# AS Expr1, ",
+                            "'", filename, "' AS Expr2, ",
+                            fetch_type_ID, " AS Expr3;")                   # should get from lkpFetchType
+  res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
 
+  # get tblImport record ID
+  import_ID <- get_sql_ID(ch)
+
+  # now insert each type of record from dat....
 }
