@@ -9,8 +9,7 @@ pitdb_parse_bird_report_file(filename, verbose = FALSE)
 \arguments{
 \item{filename}{Path to file containing data dumped from a monitor board.}
 
-\item{verbose}{Print information regarding numbers of status records, tag read
-records, mark_upload records, # of boards reporting, and ghost reads.}
+\item{verbose}{If \code{TRUE}, print a banner for each processed file.}
 }
 \value{
 Returns a list with elements \code{tag_reads, statuses, uploads, bad_recs}. Individual elements of the list will be

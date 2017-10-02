@@ -4,7 +4,7 @@
 \alias{pitdb_summarize_parsed_file}
 \title{Print a summary of data parsed from a Raspberry Pi report file}
 \usage{
-pitdb_summarize_parsed_file(dat, verbose = FALSE, ch = NULL)
+pitdb_summarize_parsed_file(dat, ch = NULL, verbose = FALSE)
 }
 \arguments{
 \item{dat}{List (typically returned from \code{pitdb_parse_bird_report_file})
@@ -12,6 +12,8 @@ containing elements \code{tag_reads, statuses, uploads, bad_recs}.}
 
 \item{ch}{an open connection to the database. If not null, tag_read records are further categorized
 as known_tags, webserver tags, test tags, and unknown tags.}
+
+\item{verbose}{If \code{TRUE}, print details of each record.}
 }
 \description{
 The function summarizes data parsed from a bird report datafile.

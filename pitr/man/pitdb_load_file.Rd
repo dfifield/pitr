@@ -4,7 +4,7 @@
 \alias{pitdb_load_file}
 \title{Load a PIT tag datafile into a database.}
 \usage{
-pitdb_load_file(ch, filename, detect_non_reporters = TRUE,
+pitdb_load_file(ch, filename, date_ = NULL, detect_non_reporters = TRUE,
   detect_ghost_reads = TRUE)
 }
 \arguments{
@@ -17,6 +17,9 @@ not reporting data in \code{filename}.}
 
 \item{detect_ghost_reads}{Produce a warning for potential ghost reads. See
 \code{Sanity checks} below.}
+
+\item{date}{Date on which the data was downloaded. Normally this is parsed
+from the \code{filename} but it can be over-ridden with this argument.}
 }
 \value{
 Returns TRUE on success and FALSE on error.
@@ -37,7 +40,9 @@ This function reads a text file of records that have been extracted
  data that day. If  \code{detect_non_reporters} = \code{TRUE},
  \code{pitdb_load_file} will issue a warning message listing any boards that
  are currently deployed (as defined in tblBoardDeploy in the Access database)
- but did not provide any data in \code{filename}.
+ but did not provide any data in \code{filename}. The meaning of "currently"
+ in the last sentence means "on the date that the data was download" which
+ comes from the filename but which can be overridded by \code{date}.
 
  What it does in the database......
 
@@ -51,11 +56,13 @@ This function reads a text file of records that have been extracted
  deal with conversion of voltages and MCU temperature
 
  prints a summary of what was done (consider how this is done: jsut via print
- or does it return a summary object which has a print method...probably just print it - easier).
+ or does it return a summary object which has a print method...probably just
+ print it - easier).
 
- Decide what to do about unknown tag IDs (legitimate and ghost reads) since the
- database currently requires all tags in tblTagRead table to exist apriori in tblTags.
- Should they go in some other table, or just be discarded. Put them in failed load table.
+ Decide what to do about unknown tag IDs (legitimate and ghost reads) since
+ the database currently requires all tags in tblTagRead table to exist
+ apriori in tblTags. Should they go in some other table, or just be
+ discarded. Put them in failed load table.
 
  talk about creation of a tblImports record.
 
@@ -64,10 +71,10 @@ This function reads a text file of records that have been extracted
 \section{Sanity checks}{
 
 
- \itemize{
- \item detects any board not reporting if \code{detect_non_reporters} = TRUE.
- \item issues a warning (and fails to add record) if an attempt is made to import a record that already exists.
- \item issues a warning (and fails to add record) if a tag_read record refers to an
+ \itemize{ \item detects any board not reporting if
+ \code{detect_non_reporters} = TRUE. \item issues a warning (and fails to add
+ record) if an attempt is made to import a record that already exists. \item
+ issues a warning (and fails to add record) if a tag_read record refers to an
  unknown tag ID. This could be either a legitimate tag that has not been
  added to the database or a so-called \emph{ghost read}. Ghost reads are
  almost entirely eliminated as of rfid board software version 1.1, since only
