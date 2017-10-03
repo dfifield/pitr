@@ -153,6 +153,11 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 
   #####  All tag_read records #####
   if (!is.null(dat$tag_reads)) {
+
+    # extract and remove any tag reads from Board 1
+    board1 <- dplyr::filter(dat$tag_reads, BoardID == 1)
+    dat$tag_reads <- dplyr::filter(dat$tag_reads, BoardID != 1)
+
     tags <- unique(dat$tag_reads$tagID)
     tags <- tags[order(tags)]
     boards <- unique(dat$tag_reads$BoardID)
@@ -208,7 +213,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
           one_read_tags <- one_read_tags[order(one_read_tags)]
         }
 
-        cat(paste0("\n", nrow(known_tag_reads), " of these reads were from known tags, n = ", length(tags), " tags"))
+        cat(paste0("\n\t", nrow(known_tag_reads), " of these reads were from known tags, n = ", length(tags), " tags"))
         print(table(known_tag_reads$tagID))
 
         cat(paste0("\n\tfrom ", length(boards), " boards (",
@@ -243,8 +248,18 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
         cat("\n0 test tag reads.")
       }
 
+      ################### board1 tag reads #######
+      if (nrow(board1) > 0) {
+        cat(paste0("\n", nrow(board1), " read from the test board (#1).\n"))
+        print(table(board1$tagID))
+      } else {
+        cat("\n0 reads from the test board (#1).")
+      }
+
       ################### unknown tag reads #######
-      ukn <- dplyr::setdiff(dat$tag_reads, dplyr::union(known_tag_reads, web, test))
+      ukn <- dat$tag_reads %>%
+        dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web, test)) %>%
+        dplyr::distinct()
       if (nrow(ukn) > 0) {
         tags <- unique(ukn$tagID)
         tags <- tags[order(tags)]
@@ -378,8 +393,14 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 #'@return Returns TRUE on success and FALSE on error.
 #'@section Author: Dave Fifield
 #'
-pitdb_load_file <- function(ch, filename, date_ = NULL, fetch_type = "WiFi", detect_non_reporters = TRUE,
+pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type = "WiFi", detect_non_reporters = TRUE,
                             detect_ghost_reads = TRUE){
+
+  !is.null(ch) || stop("parameter ch is missing.")
+  !is.null(filename) || stop("parameter filename is missing.")
+
+
+  ###### Create tblImports record -----
 
   # get date of download
   date_ <- date_ %||% parse_date_from_string(filename)
@@ -403,5 +424,107 @@ pitdb_load_file <- function(ch, filename, date_ = NULL, fetch_type = "WiFi", det
   # get tblImport record ID
   import_ID <- get_sql_ID(ch)
 
-  # now insert each type of record from dat....
+  ####### Insert each type of record from dat.... -----
+
+  # get special tags
+  sp_tags <- RODBC::sqlFetch(ch, "lkpSpecialTags", as.is = T) %>% ensure_data_is_returned
+
+  # create special tag indicators
+  test_tags <- dplyr::filter(sp_tags, Typ == "test_tag")$Val
+  known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
+  web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
+
+  # Remove tags coming from Board 1 (the test board). This prevents accidental
+  # insertion of tag reads from the test board that were in the RPi dbase when
+  # it was deployed in the field.
+
+  #### Insert board tag reads ----
+  board1_tag_reads <- dat$tag_reads %>% dplyr::filter(BoardID == 1)
+  board1_tag_reads %>%
+    insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test_board")
+
+  ##### Insert tags known to be deployed on birds ----
+  dat$tag_reads <- dat$tag_reads %>% dplyr::filter(BoardID != 1)
+
+  known_tags <- RODBC::sqlFetch(ch, "tblTags", as.is = T) %>% ensure_data_is_returned
+  known_tag_reads <- dat$tag_reads %>%
+    dplyr::filter(tagID %in% known_tags$TagID) %>%
+    insert_tag_reads(ch = ch, whch_table = "tblBirdTagRead", import_ID = import_ID)
+
+  #### Insert web tag reads ----
+  web_tag_reads <- dat$tag_reads %>%
+    dplyr::filter(substr(tagID, 1, 4) == web_prefix) %>%
+    insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web")
+
+  #### Insert test tag reads ----
+  test_tag_reads <- dat$tag_reads %>%
+    dplyr::filter(tagID %in% test_tags) %>%
+    insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test")
+
+  #### Insert unknown tag reads ----
+  unkn_tag_reads <- dat$tag_reads %>%
+    dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads)) %>%
+    dplyr::distinct() %>%
+    insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown")
+
+  #### Check to make sure all tag_reads were used ----
+  dat$tag_reads %>%
+    dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads, unkn_tag_reads)
+}
+
+#####
+# Insert a tag read into one of the tag read tables
+#
+# ch - open RODBC channel
+# import_ID - ID from tblImports
+# read_type - either "Web", "Test", "Unknown" or "Test_board"
+#     only used if whch_table == "tblOtherTagRead"
+#
+# returns tag_dat invisible so it can be used in pipes
+#
+insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL) {
+
+  ensurer::ensure_that(tag_dat, is.data.frame(.))
+  ensurer::ensure_that(whch_table, is.character(.))
+  ensurer::ensure_that(import_ID, is.integer(.))
+  ensurer::ensure_that(ch, class(ch) == "RODBC")
+
+  if (nrow(tag_dat) == 0) {
+    warning(sprintf("Tag_dat for read_type '%s' is empty. Not inserting anything.", read_type), immediate. = TRUE)
+    return(invisible(tag_dat))
+  }
+
+  tag_dat  %>% tibble::rowid_to_column() %>% split(.$rowid) %>% purrr::walk(function(dt) {
+
+    if (whch_table == "tblOtherTagRead") {
+      ensurer::ensure_that(read_type, is.character(.))
+
+      read_types <- RODBC::sqlFetch(ch, "lkpTagReadType", as.is = TRUE) %>% ensure_data_is_returned
+      read_type_ID <- dplyr::filter(read_types, ReadType == read_type)$ReadID %>% ensurer::ensure_that(length(.) > 0)
+
+      strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
+                      "[NumReads], [ImportID], [ReadType] ) SELECT ",
+                      dt$BoardID, " AS Expr1, ",
+                      "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                      "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                      "'", dt$WiFiID, "' AS Expr4, ",
+                      "'", dt$tagID, "' AS Expr5, ",
+                      dt$numread, " AS Expr6, ",
+                      import_ID, " AS Expr7, ",
+                      read_type_ID, " AS Expr8;")
+    } else {
+      strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
+                      "[NumReads], [ImportID] ) SELECT ",
+                      dt$BoardID, " AS Expr1, ",
+                      "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                      "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                      "'", dt$WiFiID, "' AS Expr4, ",
+                      "'", dt$tagID, "' AS Expr5, ",
+                      dt$numread, " AS Expr6, ",
+                      import_ID, " AS Expr7;")
+    }
+
+    res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+  })
+  invisible(tag_dat)
 }
