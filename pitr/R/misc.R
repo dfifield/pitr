@@ -21,6 +21,8 @@ parse_date_from_string <- function(filename, ...){
   lubridate::ymd(gsub(pat, "\\1_\\2_\\3", filename, perl = T), ...)
 }
 
+# get the autonumber field ID of last inserted record
 get_sql_ID <- function(ch){
-  RODBC::sqlQuery(ch, "SELECT @@IDENTITY;") %>% ensure_data_is_returned %>% ensure_one_row_returned
+  ret <- RODBC::sqlQuery(ch, "SELECT @@IDENTITY;") %>% ensure_data_is_returned %>% ensure_one_row_returned
+  ret[1,1]
 }
