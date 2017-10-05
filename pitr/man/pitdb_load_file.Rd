@@ -4,22 +4,32 @@
 \alias{pitdb_load_file}
 \title{Load a PIT tag datafile into a database.}
 \usage{
-pitdb_load_file(ch, filename, date_ = NULL, detect_non_reporters = TRUE,
-  detect_ghost_reads = TRUE)
+pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
+  fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
+  detect_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE)
 }
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
 
 \item{filename}{Path to file containing data dumped from a monitor board.}
 
-\item{detect_non_reporters}{Produce warning message for any deployed boards
-not reporting data in \code{filename}.}
+\item{date_}{Date on which the data was downloaded. Normally this is parsed
+from the \code{filename} but it can be over-ridden with this argument.}
 
-\item{detect_ghost_reads}{Produce a warning for potential ghost reads. See
+\item{fetch_type}{How the data was fetched from the board. Valid values are
+"WiFi" and "CableConnect".}
+
+\item{ignore_test_board}{Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.}
+
+\item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
+
+\item{detect_non_reporters}{Produce warning message for any deployed boards
+not reporting data in \code{filename}.
 \code{Sanity checks} below.}
 
-\item{date}{Date on which the data was downloaded. Normally this is parsed
-from the \code{filename} but it can be over-ridden with this argument.}
+\item{parse_summary}{Print a summary of the parsed data file (default = \code{FALSE})}
+
+\item{verbose}{(default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}}
 }
 \value{
 Returns TRUE on success and FALSE on error.

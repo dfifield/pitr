@@ -4,10 +4,15 @@
 \alias{pitdb_parse_bird_report_file}
 \title{Parse data from a Raspberry Pi report file}
 \usage{
-pitdb_parse_bird_report_file(filename, verbose = FALSE)
+pitdb_parse_bird_report_file(filename, ignore_test_board = TRUE,
+  test_board_ID = 1, verbose = FALSE)
 }
 \arguments{
 \item{filename}{Path to file containing data dumped from a monitor board.}
+
+\item{ignore_test_board}{Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.}
+
+\item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
 
 \item{verbose}{If \code{TRUE}, print a banner for each processed file.}
 }
