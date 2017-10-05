@@ -2,15 +2,14 @@
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
 
-#'@title Parse datafile date.
-#'
-#'@description Parses a data download filename and extracts the date.
-#'@param filename Text string giving filename with or without full pathname.
-#'@param ... Extra arguments passed to \code{lubridate::ymd}.
-#'@details Used to extract the data download date from a filename with the following form:  \bold{gipi1_report_2017_06_30_13_52_31.txt}.
-#'@return a date in \code{POSIXct} format.
-#'@section Dave Fifield
-#'
+# Parse datafile date.
+#
+#Parses a data download filename and extracts the date.
+#param filename Text string giving filename with or without full pathname.
+#param ... Extra arguments passed to \code{lubridate::ymd}.
+# Used to extract the data download date from a filename with the following form:  \bold{gipi1_report_2017_06_30_13_52_31.txt}.
+#returns a date in \code{POSIXct} format.
+#
 parse_date_from_string <- function(filename, ...){
 
   # pattern to find a date and time anywhere in string
@@ -21,8 +20,32 @@ parse_date_from_string <- function(filename, ...){
   lubridate::ymd(gsub(pat, "\\1_\\2_\\3", filename, perl = T), ...)
 }
 
+
+# Extract plot number from filename if possible
+#
+#
+parse_plot_from_name <- function(filename, ...){
+
+  # pattern to find plot number
+  pat <- "^gipi([0-9]+).*"
+
+  grepl(pat, basename(filename)) || stop(paste0("Could not extract plot number from: '", filename,"'"))
+
+  as.integer(gsub(pat, "\\1", basename(filename)))
+}
+
 # get the autonumber field ID of last inserted record
 get_sql_ID <- function(ch){
   ret <- RODBC::sqlQuery(ch, "SELECT @@IDENTITY;") %>% ensure_data_is_returned %>% ensure_one_row_returned
   ret[1,1]
+}
+
+# print out a complete tibble
+print_tibble <- function(tb){
+
+  nrow(tb) == 0 && return()
+
+  cat("\n")
+  print(tb, n = nrow(tb), width = Inf)
+  cat("\n")
 }
