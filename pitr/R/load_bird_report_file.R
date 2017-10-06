@@ -404,6 +404,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 # debugging
 # ch <- pitdb_open("C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/Burrow logger master0.1.accdb")
 # filename <- "C:\\Users\\fifieldd\\Documents\\Offline\\Projects\\Burrow_Logger\\Data\\Test data\\gipi1_report_2017_08_08_13_00_09_test_board1.txt"
+# filename <- "C:\\Users\\fifieldd\\Documents\\Offline\\Projects\\Burrow_Logger\\Data\\2017\\Downloads\\gipi1_report_2017_06_30_13_52_31.txt"
 # date_ <- NULL
 # fetch_type <- "WiFi"
 # ignore_test_board <- TRUE
@@ -418,7 +419,6 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 
   !is.null(ch) || stop("parameter ch is missing.")
   !is.null(filename) || stop("parameter filename is missing.")
-
 
   ###### Create tblImports record -----
 
@@ -472,7 +472,7 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
                   " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
                   " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
   all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-  active_brds <- all_plot_brds$BoardID %>% unique
+  active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
 
   # get all boards reporting and non-reporting
   reporting <- dat %>%
@@ -545,7 +545,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 
     #### Insert unknown tag reads ----
     cat("\tInserting unknown tag reads...")
-    unkn_tag_reads <- dat$tag_reads %>%
+    unkn_tag_reads <-
+      dat$tag_reads %>%
       dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads)) %>%
       dplyr::distinct() %>%
       insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown")
