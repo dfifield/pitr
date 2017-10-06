@@ -339,8 +339,8 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 #'  "WiFi" and "CableConnect".
 #'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
 #'@param test_board_ID The board ID of the test board (normally 1). Used to ignore testing data.
-#'@param detect_non_reporters Produce warning message for any deployed boards
-#'  not reporting data in \code{filename}.
+#'@param display_non_reporters Produce warning message for any deployed boards
+#'  not reporting data in \code{filename}.These will be added to tbl_NonReport regardless of this setting.
 #'  \code{Sanity checks} below.
 #'@param parse_summary Print a summary of the parsed data file (default = \code{FALSE})
 #'@param verbose (default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}
@@ -408,13 +408,13 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 # fetch_type <- "WiFi"
 # ignore_test_board <- TRUE
 # test_board_ID <- 1
-# detect_non_reporters <- TRUE
+# display_non_reporters <- TRUE
 # detect_ghost_reads <- TRUE
 # parse_summary <- FALSE
 # verbose <- FALSE
 
 pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-                            detect_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE){
+                            display_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE){
 
   !is.null(ch) || stop("parameter ch is missing.")
   !is.null(filename) || stop("parameter filename is missing.")
@@ -435,43 +435,7 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     return(TRUE)
   }
 
-  # handle detect_non_reporters
-  if (detect_non_reporters) {
-    # try to figure out what plat this data comes from
-    plotID <- parse_plot_from_name(filename)
-
-    # get all boards active in this plot on this date
-    strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
-                    " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
-                    " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
-                    " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
-                    " tblPlot.PlotID = tblBurrow.Plot ",
-                    " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
-                    " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
-                    " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
-    res <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-    active_brds <- res$BoardID %>% unique
-
-    # get all boards reporting and non-reportinf
-    reporting <- dat %>%
-      purrr::map("BoardID") %>%
-      purrr::flatten_int() %>%
-      unique %>%
-      sort
-    non_report <- dplyr::setdiff(active_brds, reporting) %>%
-      sort
-
-    # display message if any missing boards
-    if(length(non_report) != 0){
-      dplyr::filter(res, BoardID %in% non_report) %>%
-        dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
-        `[[`("brd_bur") %>% # there3's gotta be a better way
-        paste0(collapse = ", ") %>%
-        warn_non_reporting
-    }
-  }
-
-  # data summary
+  #### data summary ####
   if (parse_summary)
     dat %>% pitdb_summarize_parsed_file(ch = ch, verbose = F)
 
@@ -481,7 +445,7 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   res <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned %>% ensure_one_row_returned
   fetch_type_ID <- res$FetchTypeID
 
-  # create a tblImports record
+  #### create a tblImports record ####
   cat("\tCreating tblImports record...")
   strsql <- paste0("INSERT INTO tblImports ( [DateTime], [Filename], [FetchType] ) SELECT ",
                             "#", format(lubridate::now(), format = "%Y-%b-%d %H:%M:%S"), "# AS Expr1, ",
@@ -492,6 +456,56 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 
   # get tblImport record ID
   import_ID <- get_sql_ID(ch)
+
+  ##### handle non_reporters ####
+
+  # try to figure out what plat this data comes from
+  plotID <- parse_plot_from_name(filename)
+
+  # get all boards active in this plot on this date
+  strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
+                  " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
+                  " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
+                  " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
+                  " tblPlot.PlotID = tblBurrow.Plot ",
+                  " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
+                  " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
+                  " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
+  all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
+  active_brds <- all_plot_brds$BoardID %>% unique
+
+  # get all boards reporting and non-reporting
+  reporting <- dat %>%
+    purrr::map("BoardID") %>%
+    purrr::flatten_int() %>%
+    unique %>%
+    sort
+  non_report <- dplyr::setdiff(active_brds, reporting) %>%
+    sort
+
+  # deal with non-reporting boards
+  if (length(non_report) != 0){
+    # display message if any missing boards
+    if(display_non_reporters){
+      dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
+        dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
+        `[[`("brd_bur") %>% # there3's gotta be a better way
+        paste0(collapse = ", ") %>%
+        warn_non_reporting
+    }
+
+    # Insert a record into tblNonReport
+    cat("\tInserting non-reporting board records...")
+    non_report  %>% purrr::walk(function(brd) {
+      strsql <- paste0("INSERT INTO tblNonReport ( [BoardID], [Date_], [ImportID]) SELECT ",
+                      brd, " AS Expr1, ",
+                      "#", format(date_, format = "%Y-%b-%d"), "# AS Expr2, ",
+                      import_ID, " AS Expr3;")
+      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+    })
+    cat(sprintf("%d inserted\n", length(non_report)))
+  }
+
 
   ####### Insert each type of record from dat #####
 
