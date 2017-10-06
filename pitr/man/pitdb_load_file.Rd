@@ -6,7 +6,7 @@
 \usage{
 pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
   fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-  detect_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE)
+  display_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE)
 }
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
@@ -23,8 +23,8 @@ from the \code{filename} but it can be over-ridden with this argument.}
 
 \item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
 
-\item{detect_non_reporters}{Produce warning message for any deployed boards
-not reporting data in \code{filename}.
+\item{display_non_reporters}{Produce warning message for any deployed boards
+not reporting data in \code{filename}.These will be added to tbl_NonReport regardless of this setting.
 \code{Sanity checks} below.}
 
 \item{parse_summary}{Print a summary of the parsed data file (default = \code{FALSE})}
