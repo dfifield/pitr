@@ -1,5 +1,6 @@
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
+is.not.null <- function(x) ! is.null(x)
 
 
 # Parse datafile date.

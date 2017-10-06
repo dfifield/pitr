@@ -125,7 +125,7 @@ pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, te
   # deployed in the field.
   if (ignore_test_board) {
     origlen <- retval %>% purrr::map(nrow) # original counts of rows in each dataframe
-    retval <- retval %>% purrr::map(~dplyr::filter(., BoardID != test_board_ID)) # remove rows from test board
+    retval <- retval %>% purrr::map_if(is.not.null, ~ dplyr::filter(., BoardID != test_board_ID)) # remove rows from test board
     newlen <- retval %>% purrr::map(nrow) # new counts of rows
 
     # Print message for any where rows were removed
