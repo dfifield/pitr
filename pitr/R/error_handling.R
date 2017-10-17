@@ -11,7 +11,7 @@ sql_warn <- function(e){
   # fetch what sql* returned
   . <- get(".", parent.frame())
 
-  mess <- sprintf("Warning:\n%s\nError message was:\n%s\n", e$message, paste(., collapse = ", "))
+  mess <- sprintf("\nWarning:\n%s\nError message was:\n%s\n", e$message, paste(., collapse = ", "))
 
   warning(mess, immediate. = True)
 }
@@ -44,9 +44,21 @@ boards_not_reporting_warn <- function(e) {
   . <- get(".", parent.frame())
 
   dat <- paste0(., collapse = ", ")
-  mess <- sprintf("The following boards did not send data on this day: %s", dat)
+  mess <- sprintf("\nThe following boards did not send data on this day: %s", dat)
 
   warning(mess, immediate. = TRUE)
+}
+
+# print warning if data filename already in tblImports
+file_already_imported <- function(e) {
+  # fetch the data
+  . <- get(".", parent.frame())
+
+  #dat <- paste0(., collapse = ", ")
+  mess <- sprintf("\nFile has already been imported on %s with ID %d from %s.\nIgnoring file.\n", .$DateTime, .$ImportID, .$Filename)
+
+  warning(mess, immediate. = TRUE)
+  invisible(.)
 }
 
 ensure_data_is_returned <- ensurer::ensures_that(is.data.frame(.), fail_with = sql_failure)
@@ -55,3 +67,4 @@ ensure_one_row_returned <- ensurer::ensures_that(nrow(.) == 1, fail_with = too_m
 warn_insert_success <- ensurer::ensures_that(length(.) == 0, fail_with = sql_warn)
 warn_tag_reads_not_inserted <- ensurer::ensures_that(nrow(.) == 0, fail_with = tag_reads_not_inserted_warn)
 warn_non_reporting <- ensurer::ensures_that(length(.) == 0, fail_with = boards_not_reporting_warn)
+ensure_not_already_imported <- ensurer::ensures_that(nrow(.) == 0, fail_with = file_already_imported)
