@@ -44,8 +44,6 @@ pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, te
   dat <- as.data.frame(readLines(con = filename), stringsAsFactors = F)
   names(dat) <- "string"
 
-  if (verbose) cat(paste0("\n######################################\nProcessing ", basename(filename), ", ", nrow(dat), " rows read\n"))
-
   # Nothing else to do?
   if (nrow(dat) == 0)
     return(retval)
@@ -417,13 +415,20 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
                             display_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE){
 
+  cat(paste0("\n######################################\nProcessing ", basename(filename), "\n"))
+
   !is.null(ch) || stop("parameter ch is missing.")
   !is.null(filename) || stop("parameter filename is missing.")
 
-  ###### Create tblImports record -----
-
   # get date of download
   date_ <- date_ %||% parse_date_from_string(filename)
+
+  # Check if file already imorted. Rudimentary check which only considers filename
+  RODBC::sqlFetch(ch, "tblImports", as.is = T) %>%
+    ensure_data_is_returned %>%
+    dplyr::filter(basename(Filename) == basename(filename)) %>%
+    ensure_not_already_imported %>%
+    nrow() == 0 || return()
 
   # Parse file and give summary
   dat <- pitdb_parse_bird_report_file(filename,  ignore_test_board = ignore_test_board,
@@ -434,6 +439,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     cat("No data in file to load. Qutting...\n")
     return(TRUE)
   }
+
+  verbose == FALSE || cat(sprintf("%d records read.\n", nrow(dat)))
 
   #### data summary ####
   if (parse_summary)
