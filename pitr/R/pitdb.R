@@ -13,7 +13,7 @@
 pitdb_open <- function(pathname){
 
   if (Sys.getenv("R_ARCH") != "/i386")
-    stop("You are not running a 32-bit R session. You must run ECSAS.extract in a 32-bit R session due to limitations in the RODBC Access driver.")
+    stop("You are not running a 32-bit R session. You must run pitdb_open in a 32-bit R session due to limitations in the RODBC Access driver.")
 
 
   #RODBC::odbcConnectAccess(pathname)
