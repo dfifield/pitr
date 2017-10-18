@@ -440,7 +440,7 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     return(TRUE)
   }
 
-  verbose == FALSE || cat(sprintf("%d records read.\n", nrow(dat)))
+  if(verbose) cat(sprintf("%d records read.\n", nrow(dat)))
 
   #### data summary ####
   if (parse_summary)
