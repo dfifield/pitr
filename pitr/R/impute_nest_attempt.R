@@ -1,6 +1,6 @@
 
 #'@export
-#'@title Parse data from a Raspberry Pi report file
+#'@title Impute nest attempt
 #'
 #'@description The function will create and/or fill in nest attempt records from info on band no, date and burrow.
 #'
