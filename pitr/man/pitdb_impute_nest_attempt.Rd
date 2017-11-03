@@ -2,7 +2,7 @@
 % Please edit documentation in R/impute_nest_attempt.R
 \name{pitdb_impute_nest_attempt}
 \alias{pitdb_impute_nest_attempt}
-\title{Parse data from a Raspberry Pi report file}
+\title{Impute nest attempt}
 \usage{
 pitdb_impute_nest_attempt(dt, ch)
 }
