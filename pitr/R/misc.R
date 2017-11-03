@@ -50,3 +50,19 @@ print_tibble <- function(tb){
   print(tb, n = nrow(tb), width = Inf)
   cat("\n")
 }
+
+
+# encode note field
+do_note <- function(s, def = NULL) {
+
+  if (is.na(s)){
+    if (is.null(def)) {
+      "Null"
+    } else {
+      paste0("'", def, "'")
+    }
+  } else {
+      paste0("'", def, ";", gsub("'", "_", s), "'")
+  }
+}
+
