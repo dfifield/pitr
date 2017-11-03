@@ -62,7 +62,7 @@ do_note <- function(s, def = NULL) {
       paste0("'", def, "'")
     }
   } else {
-      paste0("'", def, ";", gsub("'", "_", s), "'")
+      paste0("'", def, "; ", gsub("'", "_", s), "'")
   }
 }
 
