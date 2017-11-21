@@ -5,8 +5,16 @@
 #'@description The function will parse a bird report datafile.
 #'
 #'@param filename Path to file containing data dumped from a monitor board.
-#'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
-#'@param test_board_ID The board ID of the test board (normally 1). Used to ignore testing data.
+#'@param fetch_type Either "WiFi" or "CableConnect". This is really a proxy for
+#'  the type of info to expect in the file since "WiFi" downloads have fetch
+#'  date and times and WiFi module ids in the data file, whereas "CableConnect"
+#'  files have fetch date and time encoded in the filename. The date encoded in
+#'  a "WiFi" downloaded file refers to the time it was received at the RPi base
+#'  station.
+#'@param ignore_test_board Should data from the test board (normally #1) be
+#'  ignored. Default = \code{TRUE}.
+#'@param test_board_ID The board ID of the test board (normally 1). Used to
+#'  ignore testing data.
 #'@param verbose If \code{TRUE}, print a banner for each processed file.
 #'
 #'@details This function reads a text file of records that have been extracted
@@ -16,9 +24,10 @@
 #'  In most cases \code{filename} will contain info from multiple monitor
 #'  boards, e.g., the daily files emailed from a Raspberry Pi base station.
 #'
-#'  Does not attempt to further split tag_reads into normal reads, webserver tags, ghost tags, etc.
-#'  since this requires info on known tags/prefixes, etc from the database and it is desirable to
-#'  have this function work whether database is available or not.
+#'  Does not attempt to further split tag_reads into normal reads, webserver
+#'  tags, ghost tags, etc. since this requires info on known tags/prefixes, etc
+#'  from the database and it is desirable to have this function work whether
+#'  database is available or not.
 #'
 #'  talk about format of filename somewhere
 #'
@@ -32,23 +41,31 @@
 #'
 #'  deal with "Bad record" rows
 #'
-#'@return Returns a list with elements \code{tag_reads, statuses, uploads, bad_recs}. Individual elements of the list will be
-#'null if \code{filename} doesn't contain any records of that type.
+#'@return Returns a list with elements \code{tag_reads, statuses, uploads,
+#'  bad_recs}. Individual elements of the list will be null if \code{filename}
+#'  doesn't contain any records of that type.
 #'@section Author: Dave Fifield
 #'
-pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, test_board_ID = 1, verbose = FALSE) {
+pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board = TRUE, test_board_ID = 1,verbose = FALSE) {
 
   # init
   retval <- list(tag_reads = NULL, statuses = NULL, uploads = NULL, bad_recs = NULL)
 
+  # If file is from direct dowload from CableConnect, then parse download date
+  # and time as FDate and FTime (fetch date and time). Fetch times are encoded in each data line for "WiFi" fetch_type.
+  if(fetch_type == "CableConnect") {
+    parts <- stringr::str_split(basename(filename), "_")
+    fetchDateTime <- as.POSIXct(strptime(paste0(parts[[1]][2], " ", parts[[1]][3]), format = "%Y%m%d %H%M%S"))
+  }
+
   dat <- as.data.frame(readLines(con = filename), stringsAsFactors = F)
   names(dat) <- "string"
 
-  # Nothing else to do?
+  # Any lines in file? Nothing else to do?
   if (nrow(dat) == 0)
     return(retval)
 
-  # Detect no updates. This is a report file with no data.
+  # Detect no updates. This is a report file with no data. Should only happen with "WIFI" downloads.
   if (nrow(dat) == 1 && (grep("no updates", dat[1,]) == 1)){
     if (verbose) cat('File contains "no updates".\n')
     return(retval)
@@ -70,16 +87,24 @@ pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, te
 
   # note this line figures out which rows to keep in the slice by looking for
   # the initial "S " in dat, since it has already been removed from statuses.
+  # There was a reason for this but I can't remember now....
   statuses <- tidyr::separate(dplyr::slice(statuses, grep(" S ", dat$string)), "string",
-                   into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "VCoin", "VIn", "MCUTemp", "Freq"), sep = "[ ]+",
+                    into = switch(fetch_type, WiFi = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "VCoin", "VIn", "MCUTemp", "Freq"),
+                      CableConnect = c("BoardID", "Date", "Time", "VCoin", "VIn", "MCUTemp", "Freq"),
+                      "error"),
+                   sep = "[ ]+",
                    convert = T)
   if(nrow(statuses) > 0) {
     statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))
-    statuses$fetchDateTime <- as.POSIXct(strptime(paste0(statuses$FDate, " ", statuses$FTime), format = "%Y-%m-%d %H:%M:%S"))
     statuses$Date <- NULL
     statuses$Time <- NULL
-    statuses$FDate <- NULL
-    statuses$FTime <- NULL
+    if(fetch_type == "WiFi") {
+      statuses$fetchDateTime <- as.POSIXct(strptime(paste0(statuses$FDate, " ", statuses$FTime), format = "%Y-%m-%d %H:%M:%S"))
+      statuses$FDate <- NULL
+      statuses$FTime <- NULL
+    } else {
+      statuses$fetchDateTime <- fetchDateTime
+    }
     retval$statuses <- statuses
   }
 
@@ -88,15 +113,23 @@ pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, te
   names(tag_reads) <- "string"
 
   tag_reads <- tidyr::separate(dplyr::slice(tag_reads, grep(" T ", dat$string)), "string",
-                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"), sep = "[ ]+",
+                     into =  switch(fetch_type,
+                                    WiFi = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"),
+                                    CableConnect = c("BoardID", "Date", "Time", "numread", "tagID"),
+                                    "error"),
+                     sep = "[ ]+",
                      convert = T)
   if(nrow(tag_reads) > 0) {
     tag_reads$dateTime <- as.POSIXct(strptime(paste0(tag_reads$Date, " ", tag_reads$Time), format = "%Y-%m-%d %H:%M:%S"))
-    tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
     tag_reads$Date <- NULL
     tag_reads$Time <- NULL
-    tag_reads$FDate <- NULL
-    tag_reads$FTime <- NULL
+    if(fetch_type == "WiFi") {
+      tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+      tag_reads$FDate <- NULL
+      tag_reads$FTime <- NULL
+    } else {
+      tag_reads$fetchDateTime <- fetchDateTime
+    }
     retval$tag_reads <- tag_reads
   }
 
@@ -105,15 +138,23 @@ pitdb_parse_bird_report_file <- function(filename,  ignore_test_board = TRUE, te
   names(uploads) <- "string"
 
   uploads <- tidyr::separate(dplyr::slice(uploads, grep(" M ", dat$string)), "string",
-                     into = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "prev_index"), sep = "[  ]+",
+                     into =  switch(fetch_type,
+                                    WiFi = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "prev_index"),
+                                    CableConnect = c("BoardID", "Date", "Time", "prev_index"),
+                                    "error"),
+                     sep = "[  ]+",
                      convert = T)
   if (nrow(uploads) > 0){
     uploads$dateTime <- as.POSIXct(strptime(paste0(uploads$Date, " ", uploads$Time), format = "%Y-%m-%d %H:%M:%S"))
-    uploads$fetchDateTime <- as.POSIXct(strptime(paste0(uploads$FDate, " ", uploads$FTime), format = "%Y-%m-%d %H:%M:%S"))
     uploads$Date <- NULL
     uploads$Time <- NULL
-    uploads$FDate <- NULL
-    uploads$FTime <- NULL
+    if(fetch_type == "WiFi") {
+      uploads$fetchDateTime <- as.POSIXct(strptime(paste0(uploads$FDate, " ", uploads$FTime), format = "%Y-%m-%d %H:%M:%S"))
+      uploads$FDate <- NULL
+      uploads$FTime <- NULL
+    } else {
+      uploads$fetchDateTime <- fetchDateTime
+    }
     retval$uploads <- uploads
   }
 
@@ -332,16 +373,23 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 #'@param ch Channel to open database returned from \code{pitdb.open}.
 #'@param filename Path to file containing data dumped from a monitor board.
 #'@param date_ Date on which the data was downloaded. Normally this is parsed
-#'  from the \code{filename} but it can be over-ridden with this argument.
+#'  from the \code{filename} but it can be over-ridden with this argument.Used to find all boards
+#'  deployed on this date and find boards not reporting any data. See \code{display_non_reporters}.
 #'@param fetch_type How the data was fetched from the board. Valid values are
 #'  "WiFi" and "CableConnect".
 #'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
 #'@param test_board_ID The board ID of the test board (normally 1). Used to ignore testing data.
+#'@param record_non_reporters (default \code{TRUE}) Should boards not reporting data in file be recorded in database?
+#'  Only makes sense when \code{fetch_type} is "WiFi" and gives an error if this is not the case.
+#'  Non-reporting boards will be added to tbl_NonReport.
 #'@param display_non_reporters Produce warning message for any deployed boards
-#'  not reporting data in \code{filename}.These will be added to tbl_NonReport regardless of this setting.
-#'  \code{Sanity checks} below.
+#'  not reporting data in \code{filename} when \code{record_non_reporters}.
 #'@param parse_summary Print a summary of the parsed data file (default = \code{FALSE})
-#'@param verbose (default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}
+#'@param ignore_insert_errors (default \code{FALSE}). If \code{TRUE}, then ignore errors when attempting to insert records
+#'into tag_reads, statuses, uploads, and bad_recs. This can be useful when loading a file downloaded from a board via
+#'direct \code{CableConnect} to ensure that no data (previously inserted via "WiFi" downloaded file) were missed.
+#'@param verbose (default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}, and warning messages upon
+#'attempting to insert a duplicate tag_read, status, upload, or bad_rec record when \code{ignore_insert_errors} is \code{TRUE}.
 #'
 #'@details This function reads a text file of records that have been extracted
 #'  from a monitor board and imports them into the database indicated by
@@ -413,15 +461,14 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 # verbose <- FALSE
 
 pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-                            display_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE){
+                            record_non_reporters = TRUE, display_non_reporters = TRUE, parse_summary = FALSE, ignore_insert_errors = FALSE,
+                            verbose = FALSE){
 
   cat(paste0("\n######################################\nProcessing ", basename(filename), "\n"))
 
   !is.null(ch) || stop("parameter ch is missing.")
   !is.null(filename) || stop("parameter filename is missing.")
-
-  # get date of download
-  date_ <- date_ %||% parse_date_from_string(filename)
+  !(record_non_reporters && fetch_type != "WiFi") || stop("'record_non_reporters' is only valid when fetch_type == 'WiFi'.")
 
   # Check if file already imorted. Rudimentary check which only considers filename
   RODBC::sqlFetch(ch, "tblImports", as.is = T) %>%
@@ -431,7 +478,7 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     nrow() == 0 || return()
 
   # Parse file and give summary
-  dat <- pitdb_parse_bird_report_file(filename,  ignore_test_board = ignore_test_board,
+  dat <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
                                       test_board_ID = test_board_ID, verbose = T)
 
   # Check if any data to process
@@ -454,10 +501,10 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 
   #### create a tblImports record ####
   cat("\tCreating tblImports record...")
-  strsql <- paste0("INSERT INTO tblImports ( [DateTime], [Filename], [FetchType] ) SELECT ",
+  strsql <- paste0("INSERT INTO tblImports ( [DateTime], [Filename], [FetchType]) SELECT ",
                             "#", format(lubridate::now(), format = "%Y-%b-%d %H:%M:%S"), "# AS Expr1, ",
                             "'", filename, "' AS Expr2, ",
-                            fetch_type_ID, " AS Expr3;")                   # should get from lkpFetchType
+                            fetch_type_ID, " AS Expr3;")
   res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
   cat("done\n")
 
@@ -465,54 +512,59 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   import_ID <- get_sql_ID(ch)
 
   ##### handle non_reporters ####
+  # This only makes sense to do for datafiles from base stations (ie. fetch_type == WiFi).
+  # this is ensured by check at start of function.
+  if (record_non_reporters) {
+    # get fetch date
+    date_ <- date_ %||% parse_date_from_string(filename)
 
-  # try to figure out what plat this data comes from
-  plotID <- parse_plot_from_name(filename)
+    # try to figure out what plot this data comes from
+    plotID <- parse_plot_from_name(filename)
 
-  # get all boards active in this plot on this date
-  strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
-                  " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
-                  " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
-                  " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
-                  " tblPlot.PlotID = tblBurrow.Plot ",
-                  " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
-                  " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
-                  " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
-  all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-  active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
+    # get all boards active in this plot on this date
+    strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
+                    " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
+                    " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
+                    " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
+                    " tblPlot.PlotID = tblBurrow.Plot ",
+                    " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
+                    " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
+                    " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
+    all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
+    active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
 
-  # get all boards reporting and non-reporting
-  reporting <- dat %>%
-    purrr::map("BoardID") %>%
-    purrr::flatten_int() %>%
-    unique %>%
-    sort
-  non_report <- dplyr::setdiff(active_brds, reporting) %>%
-    sort
+    # get all boards reporting and non-reporting
+    reporting <- dat %>%
+      purrr::map("BoardID") %>%
+      purrr::flatten_int() %>%
+      unique %>%
+      sort
+    non_report <- dplyr::setdiff(active_brds, reporting) %>%
+      sort
 
-  # deal with non-reporting boards
-  if (length(non_report) != 0){
-    # display message if any missing boards
-    if(display_non_reporters){
-      dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
-        dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
-        `[[`("brd_bur") %>% # there3's gotta be a better way
-        paste0(collapse = ", ") %>%
-        warn_non_reporting
+    # deal with non-reporting boards
+    if (length(non_report) != 0){
+      # display message if any missing boards
+      if(display_non_reporters){
+        dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
+          dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
+          `[[`("brd_bur") %>% # there3's gotta be a better way
+          paste0(collapse = ", ") %>%
+          warn_non_reporting
+      }
+
+      # Insert a record into tblNonReport
+      cat("\tInserting non-reporting board records...")
+      non_report  %>% purrr::walk(function(brd) {
+        strsql <- paste0("INSERT INTO tblNonReport ( [BoardID], [Date_], [ImportID]) SELECT ",
+                        brd, " AS Expr1, ",
+                        "#", format(date_, format = "%Y-%b-%d"), "# AS Expr2, ",
+                        import_ID, " AS Expr3;")
+        res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+      })
+      cat(sprintf("%d inserted\n", length(non_report)))
     }
-
-    # Insert a record into tblNonReport
-    cat("\tInserting non-reporting board records...")
-    non_report  %>% purrr::walk(function(brd) {
-      strsql <- paste0("INSERT INTO tblNonReport ( [BoardID], [Date_], [ImportID]) SELECT ",
-                      brd, " AS Expr1, ",
-                      "#", format(date_, format = "%Y-%b-%d"), "# AS Expr2, ",
-                      import_ID, " AS Expr3;")
-      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
-    })
-    cat(sprintf("%d inserted\n", length(non_report)))
   }
-
 
   ####### Insert each type of record from dat #####
 
@@ -530,7 +582,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     known_tags <- RODBC::sqlFetch(ch, "tblTags", as.is = T) %>% ensure_data_is_returned
     known_tag_reads <- dat$tag_reads %>%
       dplyr::filter(tagID %in% known_tags$TagID) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblBirdTagRead", import_ID = import_ID)
+      insert_tag_reads(ch = ch, whch_table = "tblBirdTagRead", import_ID = import_ID,
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted\n", nrow(known_tag_reads)))
     if (verbose) print_tibble(known_tag_reads)
 
@@ -538,7 +591,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     cat("\tInserting web tag reads...")
     web_tag_reads <- dat$tag_reads %>%
       dplyr::filter(substr(tagID, 1, 4) == web_prefix) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web")
+      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web",
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted\n", nrow(web_tag_reads)))
     if (verbose) print_tibble(web_tag_reads)
 
@@ -546,7 +600,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
     cat("\tInserting test tag reads...")
     test_tag_reads <- dat$tag_reads %>%
       dplyr::filter(tagID %in% test_tags) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test")
+      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test",
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted\n", nrow(test_tag_reads)))
     if (verbose) print_tibble(test_tag_reads)
 
@@ -556,7 +611,8 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
       dat$tag_reads %>%
       dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads)) %>%
       dplyr::distinct() %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown")
+      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown",
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted\n", nrow(unkn_tag_reads)))
     if (verbose) print_tibble(unkn_tag_reads)
 
@@ -575,7 +631,10 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 
   cat("\tInserting statuses...")
   if(!is.null(dat$statuses)){
-    dat$statuses %>% tibble::rowid_to_column() %>% split(.$rowid) %>% purrr::walk(function(dt) {
+    dat$statuses %>%
+      tibble::rowid_to_column() %>%
+      split(.$rowid) %>%
+      purrr::walk(function(dt) {
       strsql <- paste0("INSERT INTO tblStatus ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [Freq], ",
                         "[Vin], [VCoin], [MCUTemp], [ImportID] ) SELECT ",
                         dt$BoardID, " AS Expr1, ",
@@ -587,8 +646,14 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
                         round(dt$VCoin * VCoin_to_volts, 2), " AS Expr7, ",
                         round(dt$MCUTemp * MCUTemp_to_temp, 1), " AS Expr8, ",
                         import_ID, " AS Expr9;")
-      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
-      })
+      res <- RODBC::sqlQuery(ch, strsql)
+
+      # process errors
+      if(!ignore_insert_errors)
+        res %>% ensure_insert_success
+      else if (verbose)
+        res %>% warn_insert_success
+    })
     cat(sprintf("%d inserted\n", nrow(dat$statuses)))
     if (verbose) print_tibble(dat$statuses)
   } else {
@@ -598,7 +663,10 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   ##### Insert uploads ####
   cat("\tInserting uploads...")
   if(!is.null(dat$uploads)){
-    dat$uploads %>% tibble::rowid_to_column() %>% split(.$rowid) %>% purrr::walk(function(dt) {
+    dat$uploads %>%
+      tibble::rowid_to_column() %>%
+      split(.$rowid) %>%
+      purrr::walk(function(dt) {
       strsql <- paste0("INSERT INTO tblUpload ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [PrevIndex], [ImportID] ) SELECT ",
                         dt$BoardID, " AS Expr1, ",
                         "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
@@ -606,8 +674,15 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
                         "'", dt$WiFiID, "' AS Expr4, ",
                         dt$prev_index, " AS Expr5, ",
                         import_ID, " AS Expr6;")
-      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
-      })
+      res <- RODBC::sqlQuery(ch, strsql)
+
+      # process errors
+      if(!ignore_insert_errors)
+        res %>% ensure_insert_success
+      else if (verbose)
+        res %>% warn_insert_success
+
+    })
     cat(sprintf("%d inserted\n", nrow(dat$uploads)))
     if (verbose) print_tibble(dat$uploads)
   } else {
@@ -617,14 +692,23 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   ##### Insert bad records ####
   cat("\tInserting bad records...")
   if(!is.null(dat$bad_recs)){
-    dat$bad_recs %>% tibble::rowid_to_column() %>% split(.$rowid) %>% purrr::walk(function(dt) {
+    dat$bad_recs %>%
+      tibble::rowid_to_column() %>%
+      split(.$rowid) %>%
+      purrr::walk(function(dt) {
       strsql <- paste0("INSERT INTO tblBadRecord ( [BoardID], [FetchDateTime], [WIFIID], [ImportID] ) SELECT ",
                         dt$BoardID, " AS Expr1, ",
                         "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
                         "'", dt$WiFiID, "' AS Expr4, ",
                         import_ID, " AS Expr5;")
-      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
-      })
+      res <- RODBC::sqlQuery(ch, strsql)
+
+      # process errors
+      if(!ignore_insert_errors)
+        res %>% ensure_insert_success
+      else if (verbose)
+        res %>% warn_insert_success
+    })
     cat(sprintf("%d inserted\n", nrow(dat$bad_recs)))
     if (verbose) print_tibble(dat$bad_recs)
   } else {
@@ -642,10 +726,13 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 # import_ID - ID from tblImports
 # read_type - either "Web", "Test", "Unknown" or "Test_board"
 #     only used if whch_table == "tblOtherTagRead"
+# ignore_errors - ignore insertion errors (which normally cause a fatal error).
+# verbose - If TRUE,print warning message if insertion error occurs and ignore_errors is TRUE.
 #
 # returns tag_dat invisible so it can be used in pipes
 #
-insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL) {
+insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL, ignore_errors = FALSE,
+                             verbose = FALSE) {
 
   ensurer::ensure_that(tag_dat, is.data.frame(.))
   ensurer::ensure_that(whch_table, is.character(.))
@@ -656,7 +743,10 @@ insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, impor
     return(invisible(tag_dat))
   }
 
-  tag_dat  %>% tibble::rowid_to_column() %>% split(.$rowid) %>% purrr::walk(function(dt) {
+  tag_dat  %>%
+    tibble::rowid_to_column() %>%
+    split(.$rowid) %>%
+    purrr::walk(function(dt) {
 
     if (whch_table == "tblOtherTagRead") {
       ensurer::ensure_that(read_type, is.character(.))
@@ -669,7 +759,7 @@ insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, impor
                       dt$BoardID, " AS Expr1, ",
                       "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
                       "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                      "'", dt$WiFiID, "' AS Expr4, ",
+                      "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
                       "'", dt$tagID, "' AS Expr5, ",
                       dt$numread, " AS Expr6, ",
                       import_ID, " AS Expr7, ",
@@ -680,13 +770,17 @@ insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, impor
                       dt$BoardID, " AS Expr1, ",
                       "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
                       "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                      "'", dt$WiFiID, "' AS Expr4, ",
+                      "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
                       "'", dt$tagID, "' AS Expr5, ",
                       dt$numread, " AS Expr6, ",
                       import_ID, " AS Expr7;")
     }
 
-    res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+    res <- RODBC::sqlQuery(ch, strsql)
+    if (!ignore_errors)
+        res %>% ensure_insert_success
+    else if (verbose)
+        res %>% warn_insert_success
   })
   invisible(tag_dat)
 }
