@@ -6,7 +6,8 @@
 \usage{
 pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
   fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-  display_non_reporters = TRUE, parse_summary = FALSE, verbose = FALSE)
+  record_non_reporters = TRUE, display_non_reporters = TRUE,
+  parse_summary = FALSE, ignore_insert_errors = FALSE, verbose = FALSE)
 }
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
@@ -14,7 +15,8 @@ pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
 \item{filename}{Path to file containing data dumped from a monitor board.}
 
 \item{date_}{Date on which the data was downloaded. Normally this is parsed
-from the \code{filename} but it can be over-ridden with this argument.}
+from the \code{filename} but it can be over-ridden with this argument.Used to find all boards
+deployed on this date and find boards not reporting any data. See \code{display_non_reporters}.}
 
 \item{fetch_type}{How the data was fetched from the board. Valid values are
 "WiFi" and "CableConnect".}
@@ -23,13 +25,21 @@ from the \code{filename} but it can be over-ridden with this argument.}
 
 \item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
 
+\item{record_non_reporters}{(default \code{TRUE}) Should boards not reporting data in file be recorded in database?
+Only makes sense when \code{fetch_type} is "WiFi" and gives an error if this is not the case.
+Non-reporting boards will be added to tbl_NonReport.}
+
 \item{display_non_reporters}{Produce warning message for any deployed boards
-not reporting data in \code{filename}.These will be added to tbl_NonReport regardless of this setting.
-\code{Sanity checks} below.}
+not reporting data in \code{filename} when \code{record_non_reporters}.}
 
 \item{parse_summary}{Print a summary of the parsed data file (default = \code{FALSE})}
 
-\item{verbose}{(default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}}
+\item{ignore_insert_errors}{(default \code{FALSE}). If \code{TRUE}, then ignore errors when attempting to insert records
+into tag_reads, statuses, uploads, and bad_recs. This can be useful when loading a file downloaded from a board via
+direct \code{CableConnect} to ensure that no data (previously inserted via "WiFi" downloaded file) were missed.}
+
+\item{verbose}{(default \code{FALSE}) show inserted data when insert_summary is \code{TRUE}, and warning messages upon
+attempting to insert a duplicate tag_read, status, upload, or bad_rec record when \code{ignore_insert_errors} is \code{TRUE}.}
 }
 \value{
 Returns TRUE on success and FALSE on error.

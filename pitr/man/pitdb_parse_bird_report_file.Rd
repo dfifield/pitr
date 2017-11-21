@@ -4,21 +4,31 @@
 \alias{pitdb_parse_bird_report_file}
 \title{Parse data from a Raspberry Pi report file}
 \usage{
-pitdb_parse_bird_report_file(filename, ignore_test_board = TRUE,
+pitdb_parse_bird_report_file(filename, fetch_type, ignore_test_board = TRUE,
   test_board_ID = 1, verbose = FALSE)
 }
 \arguments{
 \item{filename}{Path to file containing data dumped from a monitor board.}
 
-\item{ignore_test_board}{Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.}
+\item{fetch_type}{Either "WiFi" or "CableConnect". This is really a proxy for
+the type of info to expect in the file since "WiFi" downloads have fetch
+date and times and WiFi module ids in the data file, whereas "CableConnect"
+files have fetch date and time encoded in the filename. The date encoded in
+a "WiFi" downloaded file refers to the time it was received at the RPi base
+station.}
 
-\item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
+\item{ignore_test_board}{Should data from the test board (normally #1) be
+ignored. Default = \code{TRUE}.}
+
+\item{test_board_ID}{The board ID of the test board (normally 1). Used to
+ignore testing data.}
 
 \item{verbose}{If \code{TRUE}, print a banner for each processed file.}
 }
 \value{
-Returns a list with elements \code{tag_reads, statuses, uploads, bad_recs}. Individual elements of the list will be
-null if \code{filename} doesn't contain any records of that type.
+Returns a list with elements \code{tag_reads, statuses, uploads,
+ bad_recs}. Individual elements of the list will be null if \code{filename}
+ doesn't contain any records of that type.
 }
 \description{
 The function will parse a bird report datafile.
@@ -31,9 +41,10 @@ This function reads a text file of records that have been extracted
  In most cases \code{filename} will contain info from multiple monitor
  boards, e.g., the daily files emailed from a Raspberry Pi base station.
 
- Does not attempt to further split tag_reads into normal reads, webserver tags, ghost tags, etc.
- since this requires info on known tags/prefixes, etc from the database and it is desirable to
- have this function work whether database is available or not.
+ Does not attempt to further split tag_reads into normal reads, webserver
+ tags, ghost tags, etc. since this requires info on known tags/prefixes, etc
+ from the database and it is desirable to have this function work whether
+ database is available or not.
 
  talk about format of filename somewhere
 
