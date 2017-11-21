@@ -13,7 +13,7 @@ sql_warn <- function(e){
 
   mess <- sprintf("\nWarning:\n%s\nError message was:\n%s\n", e$message, paste(., collapse = ", "))
 
-  warning(mess, immediate. = True)
+  warning(mess, immediate. = TRUE)
 }
 
 too_many_rows <- function(e) {
