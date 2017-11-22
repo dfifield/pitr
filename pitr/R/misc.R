@@ -66,4 +66,31 @@ do_note <- function(s, def = NULL) {
   }
 }
 
-is.not.null <- function(x) !is.null(x)
+
+
+# called once from per_dataclass_filter for each board in data with brd_df containing all rows for that board
+# my depl is table of all board deployments.
+# Note the use of as.character() to avoid any funky timezone conversions when as.Date is called with a POSIXct date.
+# In that case, dateTimes with time > 21:30 were being converted to the following day.
+per_board_filter <- function(brd_df, mydepl){
+  # get deployments for this board
+  mydepl <- filter(mydepl, BoardID == unique(brd_df$BoardID))
+
+  # for each deployment, filter on dates
+  mydepl %>%
+    rowid_to_column() %>%
+    split(.$rowid) %>%
+    map_dfr(~ dplyr::filter(brd_df, between(as.Date(as.character(dateTime)),
+                                            as.Date(as.character(.$FromDate)),
+                                            as.Date(as.character(.$ToDate)))))
+}
+
+# called from pitdb_load_file once for each element of the data list (ie. tag_reads, statuses, uploads, bad_recs)
+# my depl is table of all board deployments
+per_dataclass_filter <- function(df, mydepl) {
+  df %>%
+  split(.$BoardID) %>%
+  map_dfr(per_board_filter, mydepl = mydepl)
+}
+
+
