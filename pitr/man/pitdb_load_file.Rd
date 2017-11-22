@@ -5,9 +5,11 @@
 \title{Load a PIT tag datafile into a database.}
 \usage{
 pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
-  fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-  record_non_reporters = TRUE, display_non_reporters = TRUE,
-  parse_summary = FALSE, ignore_insert_errors = FALSE, verbose = FALSE)
+  fetch_type = "WiFi", from_date = NULL, to_date = NULL,
+  limit_to_deploy_dates = TRUE, ignore_test_board = TRUE,
+  test_board_ID = 1, record_non_reporters = TRUE,
+  display_non_reporters = TRUE, parse_summary = FALSE,
+  ignore_insert_errors = FALSE, verbose = FALSE)
 }
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
@@ -20,6 +22,15 @@ deployed on this date and find boards not reporting any data. See \code{display_
 
 \item{fetch_type}{How the data was fetched from the board. Valid values are
 "WiFi" and "CableConnect".}
+
+\item{from_date}{(default = NUll) minimum date to accept in data from file. Data with dates outside the range
+\code{from_date to  to_date} will not be imported into the database.}
+
+\item{to_date}{(default = NULL) maximum date to accept in data from file. \code{from_date/to_date} override
+\code{limit_to_deploy_dates} if supplied.}
+
+\item{limit_to_deploy_dates}{(default = \code{TRUE}). Only data within the range of dates that the board was deployed will
+be imported. This is usefule to exclude data recorded before or after deployment (e.g. at the office).}
 
 \item{ignore_test_board}{Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.}
 
