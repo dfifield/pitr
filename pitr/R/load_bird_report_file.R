@@ -363,8 +363,6 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
   invisible(dat)
 }
 
-
-
 #'@export
 #'@title Load a PIT tag datafile into a database.
 #'
@@ -375,10 +373,12 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 #'@param date_ Date on which the data was downloaded. Normally this is parsed
 #'  from the \code{filename} but it can be over-ridden with this argument.Used to find all boards
 #'  deployed on this date and find boards not reporting any data. See \code{display_non_reporters}.
-#'@param from_date (default = "1900-01-01") minimum date to accept in data from file. Data with dates outside the range
-#' \code{from_date to  to_date} will not be imported into the database. This is usefule to exclude data recorded
-#' before or after deployment (e.g. at the office).
-#'@param to_date (default = "2200-12-31") maximum date to accept in data from file.
+#'@param from_date (default = NUll) minimum date to accept in data from file. Data with dates outside the range
+#' \code{from_date to  to_date} will not be imported into the database.
+#'@param to_date (default = NULL) maximum date to accept in data from file. \code{from_date/to_date} override
+#'  \code{limit_to_deploy_dates} if supplied.
+#'@param limit_to_deploy_dates (default = \code{TRUE}). Only data within the range of dates that the board was deployed will
+#'  be imported. This is usefule to exclude data recorded before or after deployment (e.g. at the office).
 #'@param fetch_type How the data was fetched from the board. Valid values are
 #'  "WiFi" and "CableConnect".
 #'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
@@ -468,8 +468,9 @@ pitdb_load_file <- function(ch = NULL,
                             filename = NULL,
                             date_ = NULL,
                             fetch_type = "WiFi",
-                            from_date = lubridate::ymd("1900-01-01"),
-                            to_date = lubridate::ymd("2200-12-31"),
+                            from_date = NULL,
+                            to_date = NULL,
+                            limit_to_deploy_dates = TRUE,
                             ignore_test_board = TRUE,
                             test_board_ID = 1,
                             record_non_reporters = TRUE,
@@ -484,6 +485,10 @@ pitdb_load_file <- function(ch = NULL,
   !is.null(ch) || stop("parameter ch is missing.")
   !is.null(filename) || stop("parameter filename is missing.")
   !(record_non_reporters && fetch_type != "WiFi") || stop("'record_non_reporters' is only valid when fetch_type == 'WiFi'.")
+  invisible(ensurer::ensure_that(list(from_date, to_date),
+                      (is.null(.[[1]]) && is.null(.[[2]])) ||
+                      (is.not.null(.[[1]]) && is.not.null(.[[2]])),
+                      err_desc = "from_date and to_date must both either be supplied or NULL" ))
 
   # Check if file already imorted. Rudimentary check which only considers filename
   RODBC::sqlFetch(ch, "tblImports", as.is = T) %>%
@@ -496,13 +501,39 @@ pitdb_load_file <- function(ch = NULL,
   dat <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
                                       test_board_ID = test_board_ID, verbose = T)
 
-  # Check if any data to process
-  if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
-    cat("No data in file to load. Qutting...\n")
-    return(TRUE)
+  if (verbose) cat(sprintf("%d rows read from file\n", map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+
+  # Remove data outside specified date range and override limit_to_deploy_dates
+  # if from_date and to_date are given. Note we've already made sure both of from_date and to_date
+  # are supplied if either of them is.
+  if( is.not.null(from_date)) {
+    limit_to_deploy_dates = FALSE
+
+    # remove data outside of specified date range
+    dat <- dat %>%
+    map_if(.p = is.not.null, .f = function(dt) {filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
+
+    if(verbose) cat(sprintf("%d records retained after date filtering.\n",  map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
   }
 
-  if(verbose) cat(sprintf("%d records read.\n", nrow(dat)))
+  # Filter out data outside deployment dates.
+  if (limit_to_deploy_dates) {
+    # get deployments
+    strsql <- paste0("SELECT tblBoardDeploy.BoardID, tblBoardDeploy.FromDate, tblBoardDeploy.ToDate ",
+        "FROM tblBoardDeploy;")
+    depl <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
+
+    dat <- dat %>%  map_if(is.not.null, per_dataclass_filter, depl)
+
+    if(verbose) cat(sprintf("%d records retained after deployment date filtering.\n",  map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+  }
+  stop("stopping")
+
+  # Check if any data left to process
+  if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
+    cat("No data to load. Qutting...\n")
+    return(TRUE)
+  }
 
   #### data summary ####
   if (parse_summary)
@@ -581,7 +612,9 @@ pitdb_load_file <- function(ch = NULL,
     }
   }
 
+  #################################################
   ####### Insert each type of record from dat #####
+  #################################################
 
   # get special tags
   sp_tags <- RODBC::sqlFetch(ch, "lkpSpecialTags", as.is = T) %>% ensure_data_is_returned
@@ -590,10 +623,6 @@ pitdb_load_file <- function(ch = NULL,
   test_tags <- dplyr::filter(sp_tags, Typ == "test_tag")$Val
   known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
   web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
-
-  # remove data outside of specified date range
-  dat <- dat %>%
-    map_if(.p = is.not.null, .f = function(dt) {filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
 
   ##### Insert tags known to be deployed on birds ----
   cat("\tInserting bird tag reads...")
