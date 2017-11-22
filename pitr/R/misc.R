@@ -66,3 +66,4 @@ do_note <- function(s, def = NULL) {
   }
 }
 
+is.not.null <- function(x) !is.null(x)
