@@ -358,7 +358,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
         paste0(boards, collapse = ", "), ")\n\tspanning fetch dates ",
         paste0(range(dat$bad_recs$fetchDateTime), collapse = " to "), "\n"))
     if (verbose) dat$bad_recs %>% print(n = nrow(.))
-  } else cat("\nNo bad records")
+  } else cat("\nNo bad records\n")
 
   invisible(dat)
 }
@@ -375,6 +375,10 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 #'@param date_ Date on which the data was downloaded. Normally this is parsed
 #'  from the \code{filename} but it can be over-ridden with this argument.Used to find all boards
 #'  deployed on this date and find boards not reporting any data. See \code{display_non_reporters}.
+#'@param from_date (default = "1900-01-01") minimum date to accept in data from file. Data with dates outside the range
+#' \code{from_date to  to_date} will not be imported into the database. This is usefule to exclude data recorded
+#' before or after deployment (e.g. at the office).
+#'@param to_date (default = "2200-12-31") maximum date to accept in data from file.
 #'@param fetch_type How the data was fetched from the board. Valid values are
 #'  "WiFi" and "CableConnect".
 #'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
@@ -460,9 +464,20 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
 # parse_summary <- FALSE
 # verbose <- FALSE
 
-pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type = "WiFi", ignore_test_board = TRUE, test_board_ID = 1,
-                            record_non_reporters = TRUE, display_non_reporters = TRUE, parse_summary = FALSE, ignore_insert_errors = FALSE,
-                            verbose = FALSE){
+pitdb_load_file <- function(ch = NULL,
+                            filename = NULL,
+                            date_ = NULL,
+                            fetch_type = "WiFi",
+                            from_date = lubridate::ymd("1900-01-01"),
+                            to_date = lubridate::ymd("2200-12-31"),
+                            ignore_test_board = TRUE,
+                            test_board_ID = 1,
+                            record_non_reporters = TRUE,
+                            display_non_reporters = TRUE,
+                            parse_summary = FALSE,
+                            ignore_insert_errors = FALSE,
+                            verbose = FALSE)
+{
 
   cat(paste0("\n######################################\nProcessing ", basename(filename), "\n"))
 
@@ -576,44 +591,45 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   known_prefix <- dplyr::filter(sp_tags, Typ == "known_prefix")$Val
   web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
 
+  # remove data outside of specified date range
+  dat <- dat %>%
+    map_if(.p = is.not.null, .f = function(dt) {filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
+
   ##### Insert tags known to be deployed on birds ----
   cat("\tInserting bird tag reads...")
   if (!is.null(dat$tag_reads)) {
     known_tags <- RODBC::sqlFetch(ch, "tblTags", as.is = T) %>% ensure_data_is_returned
-    known_tag_reads <- dat$tag_reads %>%
-      dplyr::filter(tagID %in% known_tags$TagID) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblBirdTagRead", import_ID = import_ID,
+    known_tag_reads <- dat$tag_reads %>% dplyr::filter(tagID %in% known_tags$TagID)
+    insert_results <- known_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblBirdTagRead", import_ID = import_ID,
                        ignore_errors = ignore_insert_errors, verbose = verbose)
-    cat(sprintf("%d inserted\n", nrow(known_tag_reads)))
-    if (verbose) print_tibble(known_tag_reads)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(known_tag_reads[insert_results,])
 
     #### Insert web tag reads ----
     cat("\tInserting web tag reads...")
-    web_tag_reads <- dat$tag_reads %>%
-      dplyr::filter(substr(tagID, 1, 4) == web_prefix) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web",
+    web_tag_reads <- dat$tag_reads %>% dplyr::filter(substr(tagID, 1, 4) == web_prefix)
+    insert_results <- web_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web",
                        ignore_errors = ignore_insert_errors, verbose = verbose)
-    cat(sprintf("%d inserted\n", nrow(web_tag_reads)))
-    if (verbose) print_tibble(web_tag_reads)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(web_tag_reads[insert_results,])
 
     #### Insert test tag reads ----
     cat("\tInserting test tag reads...")
-    test_tag_reads <- dat$tag_reads %>%
-      dplyr::filter(tagID %in% test_tags) %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test",
+    test_tag_reads <- dat$tag_reads %>% dplyr::filter(tagID %in% test_tags)
+    insert_results <- test_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test",
                        ignore_errors = ignore_insert_errors, verbose = verbose)
-    cat(sprintf("%d inserted\n", nrow(test_tag_reads)))
-    if (verbose) print_tibble(test_tag_reads)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(test_tag_reads[insert_results,])
 
     #### Insert unknown tag reads ----
     cat("\tInserting unknown tag reads...")
     unkn_tag_reads <-
       dat$tag_reads %>%
       dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads)) %>%
-      dplyr::distinct() %>%
-      insert_tag_reads(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown",
+      dplyr::distinct()
+    insert_results <- unkn_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown",
                        ignore_errors = ignore_insert_errors, verbose = verbose)
-    cat(sprintf("%d inserted\n", nrow(unkn_tag_reads)))
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
     if (verbose) print_tibble(unkn_tag_reads)
 
     #### Check to make sure all tag_reads were used ----
@@ -624,38 +640,12 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   }
 
   ##### Insert statuses ####
-  # Empirical value derived from measuring voltage and observing value of vin at same time
-  VIn_to_volts <- 0.013342
-  VCoin_to_volts <- 0.001881
-  MCUTemp_to_temp <- 1 # XXX havent figure out how to convert yet
-
   cat("\tInserting statuses...")
   if(!is.null(dat$statuses)){
-    dat$statuses %>%
-      tibble::rowid_to_column() %>%
-      split(.$rowid) %>%
-      purrr::walk(function(dt) {
-      strsql <- paste0("INSERT INTO tblStatus ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [Freq], ",
-                        "[Vin], [VCoin], [MCUTemp], [ImportID] ) SELECT ",
-                        dt$BoardID, " AS Expr1, ",
-                        "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
-                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                        "'", dt$WiFiID, "' AS Expr4, ",
-                        dt$Freq, " AS Expr5, ",
-                        round(dt$VIn * VIn_to_volts, 2), " AS Expr6, ",
-                        round(dt$VCoin * VCoin_to_volts, 2), " AS Expr7, ",
-                        round(dt$MCUTemp * MCUTemp_to_temp, 1), " AS Expr8, ",
-                        import_ID, " AS Expr9;")
-      res <- RODBC::sqlQuery(ch, strsql)
-
-      # process errors
-      if(!ignore_insert_errors)
-        res %>% ensure_insert_success
-      else if (verbose)
-        res %>% warn_insert_success
-    })
-    cat(sprintf("%d inserted\n", nrow(dat$statuses)))
-    if (verbose) print_tibble(dat$statuses)
+    insert_results <- dat$statuses %>% insert_table_data(ch = ch, whch_table = "tblStatus", import_ID = import_ID,
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(dat$statuses[insert_results,])
   } else {
     cat("no status data to insert\n")
   }
@@ -663,28 +653,10 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   ##### Insert uploads ####
   cat("\tInserting uploads...")
   if(!is.null(dat$uploads)){
-    dat$uploads %>%
-      tibble::rowid_to_column() %>%
-      split(.$rowid) %>%
-      purrr::walk(function(dt) {
-      strsql <- paste0("INSERT INTO tblUpload ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [PrevIndex], [ImportID] ) SELECT ",
-                        dt$BoardID, " AS Expr1, ",
-                        "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
-                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                        "'", dt$WiFiID, "' AS Expr4, ",
-                        dt$prev_index, " AS Expr5, ",
-                        import_ID, " AS Expr6;")
-      res <- RODBC::sqlQuery(ch, strsql)
-
-      # process errors
-      if(!ignore_insert_errors)
-        res %>% ensure_insert_success
-      else if (verbose)
-        res %>% warn_insert_success
-
-    })
-    cat(sprintf("%d inserted\n", nrow(dat$uploads)))
-    if (verbose) print_tibble(dat$uploads)
+    insert_results <- dat$uploads %>% insert_table_data(ch = ch, whch_table = "tblUpload", import_ID = import_ID,
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(dat$uploads[insert_results,])
   } else {
     cat("no upload data to insert\n")
   }
@@ -692,31 +664,97 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
   ##### Insert bad records ####
   cat("\tInserting bad records...")
   if(!is.null(dat$bad_recs)){
-    dat$bad_recs %>%
-      tibble::rowid_to_column() %>%
-      split(.$rowid) %>%
-      purrr::walk(function(dt) {
-      strsql <- paste0("INSERT INTO tblBadRecord ( [BoardID], [FetchDateTime], [WIFIID], [ImportID] ) SELECT ",
-                        dt$BoardID, " AS Expr1, ",
-                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                        "'", dt$WiFiID, "' AS Expr4, ",
-                        import_ID, " AS Expr5;")
-      res <- RODBC::sqlQuery(ch, strsql)
-
-      # process errors
-      if(!ignore_insert_errors)
-        res %>% ensure_insert_success
-      else if (verbose)
-        res %>% warn_insert_success
-    })
-    cat(sprintf("%d inserted\n", nrow(dat$bad_recs)))
-    if (verbose) print_tibble(dat$bad_recs)
+    insert_results <- dat$bad_recs %>% insert_table_data(ch = ch, whch_table = "tblBadRecord", import_ID = import_ID,
+                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    if (verbose) print_tibble(dat$bad_recs[insert_results,])
   } else {
     cat("no bad records to insert\n")
   }
 
   cat("Done.\n")
   TRUE
+}
+
+# Try to insert a single record. Returns T if success, F otherwise.
+do_insert <- function(dt, ch, strsql, ignore_errors, whch_table, import_ID, read_type, verbose) {
+
+
+  if (whch_table == "tblOtherTagRead") {
+    ensurer::ensure_that(read_type, is.character(.))
+
+    read_types <- RODBC::sqlFetch(ch, "lkpTagReadType", as.is = TRUE) %>% ensure_data_is_returned
+    read_type_ID <- dplyr::filter(read_types, ReadType == read_type)$ReadID %>% ensurer::ensure_that(length(.) > 0)
+
+    strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
+                    "[NumReads], [ImportID], [ReadType] ) SELECT ",
+                    dt$BoardID, " AS Expr1, ",
+                    "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                    "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                    "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
+                    "'", dt$tagID, "' AS Expr5, ",
+                    dt$numread, " AS Expr6, ",
+                    import_ID, " AS Expr7, ",
+                    read_type_ID, " AS Expr8;")
+  } else if (whch_table == "tblBirdTagRead") {
+    strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
+                    "[NumReads], [ImportID] ) SELECT ",
+                    dt$BoardID, " AS Expr1, ",
+                    "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                    "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                    "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
+                    "'", dt$tagID, "' AS Expr5, ",
+                    dt$numread, " AS Expr6, ",
+                    import_ID, " AS Expr7;")
+  } else if (whch_table == "tblStatus") {
+    # Empirical value derived from measuring voltage and observing value of vin at same time
+    VIn_to_volts <- 0.013342
+    VCoin_to_volts <- 0.001881
+    MCUTemp_to_temp <- 1 # XXX havent figure out how to convert yet
+
+    strsql <- paste0("INSERT INTO tblStatus ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [Freq], ",
+                        "[Vin], [VCoin], [MCUTemp], [ImportID] ) SELECT ",
+                        dt$BoardID, " AS Expr1, ",
+                        "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                        "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
+                        dt$Freq, " AS Expr5, ",
+                        round(dt$VIn * VIn_to_volts, 2), " AS Expr6, ",
+                        round(dt$VCoin * VCoin_to_volts, 2), " AS Expr7, ",
+                        round(dt$MCUTemp * MCUTemp_to_temp, 1), " AS Expr8, ",
+                        import_ID, " AS Expr9;")
+  } else if (whch_table == "tblUpload") {
+      strsql <- paste0("INSERT INTO tblUpload ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [PrevIndex], [ImportID] ) SELECT ",
+                        dt$BoardID, " AS Expr1, ",
+                        "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
+                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                        "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
+                        dt$prev_index, " AS Expr5, ",
+                        import_ID, " AS Expr6;")
+
+  } else if (whch_table == "tblBadRecord") {
+      strsql <- paste0("INSERT INTO tblBadRecord ( [BoardID], [FetchDateTime], [WIFIID], [ImportID] ) SELECT ",
+                        dt$BoardID, " AS Expr1, ",
+                        "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
+                        "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
+                        import_ID, " AS Expr5;")
+  } else {
+    stop(sprintf("do_insert: unknown table (%s)", whch_table))
+  }
+
+
+    res <- RODBC::sqlQuery(ch, strsql)
+
+    if (!ignore_errors)
+        res %>% ensure_insert_success
+    else if (verbose)
+        res %>% warn_insert_success
+
+    # this should really be integrated into previous statement...
+    if (length(res) == 0)
+      TRUE
+    else
+      FALSE
 }
 
 #####
@@ -729,58 +767,23 @@ pitdb_load_file <- function(ch = NULL, filename = NULL, date_ = NULL, fetch_type
 # ignore_errors - ignore insertion errors (which normally cause a fatal error).
 # verbose - If TRUE,print warning message if insertion error occurs and ignore_errors is TRUE.
 #
-# returns tag_dat invisible so it can be used in pipes
 #
-insert_tag_reads <- function(tag_dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL, ignore_errors = FALSE,
+insert_table_data <- function(dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL, ignore_errors = FALSE,
                              verbose = FALSE) {
 
-  ensurer::ensure_that(tag_dat, is.data.frame(.))
+  ensurer::ensure_that(dat, is.data.frame(.))
   ensurer::ensure_that(whch_table, is.character(.))
   ensurer::ensure_that(ch, class(ch) == "RODBC")
 
-  if (nrow(tag_dat) == 0) {
+  if (nrow(dat) == 0) {
     #warning(sprintf("Tag_dat for read_type '%s' is empty. Not inserting anything.", read_type), immediate. = TRUE)
-    return(invisible(tag_dat))
+    return(invisible(logical()))
   }
 
-  tag_dat  %>%
+  # attempt to insert each record. returns a vector of T/F: T if load succeeded otherwise F, for each record.
+  res <- dat  %>%
     tibble::rowid_to_column() %>%
     split(.$rowid) %>%
-    purrr::walk(function(dt) {
-
-    if (whch_table == "tblOtherTagRead") {
-      ensurer::ensure_that(read_type, is.character(.))
-
-      read_types <- RODBC::sqlFetch(ch, "lkpTagReadType", as.is = TRUE) %>% ensure_data_is_returned
-      read_type_ID <- dplyr::filter(read_types, ReadType == read_type)$ReadID %>% ensurer::ensure_that(length(.) > 0)
-
-      strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
-                      "[NumReads], [ImportID], [ReadType] ) SELECT ",
-                      dt$BoardID, " AS Expr1, ",
-                      "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
-                      "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                      "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
-                      "'", dt$tagID, "' AS Expr5, ",
-                      dt$numread, " AS Expr6, ",
-                      import_ID, " AS Expr7, ",
-                      read_type_ID, " AS Expr8;")
-    } else {
-      strsql <- paste0("INSERT INTO ", whch_table," ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [TagID], ",
-                      "[NumReads], [ImportID] ) SELECT ",
-                      dt$BoardID, " AS Expr1, ",
-                      "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
-                      "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
-                      "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
-                      "'", dt$tagID, "' AS Expr5, ",
-                      dt$numread, " AS Expr6, ",
-                      import_ID, " AS Expr7;")
-    }
-
-    res <- RODBC::sqlQuery(ch, strsql)
-    if (!ignore_errors)
-        res %>% ensure_insert_success
-    else if (verbose)
-        res %>% warn_insert_success
-  })
-  invisible(tag_dat)
+    purrr::map_lgl(do_insert, ch = ch, strsql = strsql, import_ID = import_ID, whch_table = whch_table, read_type = read_type,
+                   ignore_errors = ignore_errors, verbose = verbose)
 }
