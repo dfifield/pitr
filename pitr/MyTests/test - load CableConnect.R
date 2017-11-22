@@ -17,10 +17,18 @@ files %>%
                                                 ignore_insert_errors = TRUE,
                                                 record_non_reporters = FALSE,
                                                 parse_summary = TRUE,
-                                                verbose = FALSE)})
+                                                verbose = TRUE)})
+
+  # walk(function(.x, ch = mych) {pitdb_load_file(ch = mych, filename = .x, fetch_type = "CableConnect",
+  #                                               to_date = lubridate::ymd("2017-11-17"),
+  #                                               from_date = lubridate::ymd("2017-07-11"),
+  #                                               ignore_insert_errors = TRUE,
+  #                                               record_non_reporters = FALSE,
+  #                                               parse_summary = TRUE,
+  #                                               verbose = FALSE)})
 
 
 # sqlQuery(ch, "INSERT INTO tblImports ( [DateTime], Notes, FetchType ) SELECT #9/8/2017# AS Expr1, 'fourth' AS EXPR2, 2 AS Expr3")
 # res <- sqlQuery(ch, "SELECT @@IDENTITY")
 
-pitdb_close(ch)
+pitdb_close(mych)
