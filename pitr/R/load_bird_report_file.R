@@ -363,6 +363,65 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
   invisible(dat)
 }
 
+handle_non_reporters <- function(record_non_reporters, dat, filename) {
+
+  # This only makes sense to do for datafiles from base stations (ie. fetch_type == WiFi).
+  # this is ensured by check at start pitdb_load_file.
+
+  if (record_non_reporters) {
+    # get fetch date
+    date_ <- date_ %||% parse_date_from_string(filename)
+
+    # try to figure out what plot this data comes from
+    plotID <- parse_plot_from_name(filename)
+
+    # get all boards active in this plot on this date
+    strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
+                    " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
+                    " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
+                    " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
+                    " tblPlot.PlotID = tblBurrow.Plot ",
+                    " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
+                    " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
+                    " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
+    all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
+    active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
+
+    # get all boards reporting and non-reporting
+    reporting <- dat %>%
+      purrr::map("BoardID") %>%
+      purrr::flatten_int() %>%
+      unique %>%
+      sort
+    non_report <- dplyr::setdiff(active_brds, reporting) %>%
+      sort
+
+    # deal with non-reporting boards
+    if (length(non_report) != 0){
+      # display message if any missing boards
+      if(display_non_reporters){
+        dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
+          dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
+          `[[`("brd_bur") %>% # there3's gotta be a better way
+          paste0(collapse = ", ") %>%
+          warn_non_reporting
+      }
+
+      # Insert a record into tblNonReport
+      cat("\tInserting non-reporting board records...")
+      non_report %>%
+        purrr::walk(function(brd) {
+          strsql <- paste0("INSERT INTO tblNonReport ( [BoardID], [Date_], [ImportID]) SELECT ",
+                          brd, " AS Expr1, ",
+                          "#", format(date_, format = "%Y-%b-%d"), "# AS Expr2, ",
+                          import_ID, " AS Expr3;")
+          res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+        })
+      cat(sprintf("%d inserted\n", length(non_report)))
+    }
+  }
+}
+
 #'@export
 #'@title Load a PIT tag datafile into a database.
 #'
@@ -518,7 +577,6 @@ pitdb_load_file <- function(ch = NULL,
 
   # Filter out data outside deployment dates.
   if (limit_to_deploy_dates) {
-    # get deployments
     strsql <- paste0("SELECT tblBoardDeploy.BoardID, tblBoardDeploy.FromDate, tblBoardDeploy.ToDate ",
         "FROM tblBoardDeploy;")
     depl <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
@@ -527,7 +585,6 @@ pitdb_load_file <- function(ch = NULL,
 
     if(verbose) cat(sprintf("%d records retained after deployment date filtering.\n",  map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
   }
-  stop("stopping")
 
   # Check if any data left to process
   if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
@@ -558,59 +615,7 @@ pitdb_load_file <- function(ch = NULL,
   import_ID <- get_sql_ID(ch)
 
   ##### handle non_reporters ####
-  # This only makes sense to do for datafiles from base stations (ie. fetch_type == WiFi).
-  # this is ensured by check at start of function.
-  if (record_non_reporters) {
-    # get fetch date
-    date_ <- date_ %||% parse_date_from_string(filename)
-
-    # try to figure out what plot this data comes from
-    plotID <- parse_plot_from_name(filename)
-
-    # get all boards active in this plot on this date
-    strsql <- paste0("SELECT tblPlot.PlotID, tblBoardDeploy.BoardID, tblBoardDeploy.BurrowID, ",
-                    " tblBoardDeploy.FromDate, tblBoardDeploy.ToDate FROM tblPlot INNER JOIN ",
-                    " (tblBurrow INNER JOIN (tblBoard INNER JOIN tblBoardDeploy ON tblBoard.BoardID ",
-                    " = tblBoardDeploy.BoardID) ON tblBurrow.BurrowID = tblBoardDeploy.BurrowID) ON ",
-                    " tblPlot.PlotID = tblBurrow.Plot ",
-                    " WHERE (((tblPlot.PlotID)=", plotID, ") AND ",
-                    " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
-                    " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
-    all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-    active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
-
-    # get all boards reporting and non-reporting
-    reporting <- dat %>%
-      purrr::map("BoardID") %>%
-      purrr::flatten_int() %>%
-      unique %>%
-      sort
-    non_report <- dplyr::setdiff(active_brds, reporting) %>%
-      sort
-
-    # deal with non-reporting boards
-    if (length(non_report) != 0){
-      # display message if any missing boards
-      if(display_non_reporters){
-        dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
-          dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
-          `[[`("brd_bur") %>% # there3's gotta be a better way
-          paste0(collapse = ", ") %>%
-          warn_non_reporting
-      }
-
-      # Insert a record into tblNonReport
-      cat("\tInserting non-reporting board records...")
-      non_report  %>% purrr::walk(function(brd) {
-        strsql <- paste0("INSERT INTO tblNonReport ( [BoardID], [Date_], [ImportID]) SELECT ",
-                        brd, " AS Expr1, ",
-                        "#", format(date_, format = "%Y-%b-%d"), "# AS Expr2, ",
-                        import_ID, " AS Expr3;")
-        res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
-      })
-      cat(sprintf("%d inserted\n", length(non_report)))
-    }
-  }
+  handle_non_reporters(record_non_reporters, dat, filename)
 
   #################################################
   ####### Insert each type of record from dat #####
@@ -625,6 +630,7 @@ pitdb_load_file <- function(ch = NULL,
   web_prefix <- dplyr::filter(sp_tags, Typ == "web_prefix")$Val
 
   ##### Insert tags known to be deployed on birds ----
+
   cat("\tInserting bird tag reads...")
   if (!is.null(dat$tag_reads)) {
     known_tags <- RODBC::sqlFetch(ch, "tblTags", as.is = T) %>% ensure_data_is_returned
@@ -635,6 +641,7 @@ pitdb_load_file <- function(ch = NULL,
     if (verbose) print_tibble(known_tag_reads[insert_results,])
 
     #### Insert web tag reads ----
+
     cat("\tInserting web tag reads...")
     web_tag_reads <- dat$tag_reads %>% dplyr::filter(substr(tagID, 1, 4) == web_prefix)
     insert_results <- web_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web",
@@ -643,6 +650,7 @@ pitdb_load_file <- function(ch = NULL,
     if (verbose) print_tibble(web_tag_reads[insert_results,])
 
     #### Insert test tag reads ----
+
     cat("\tInserting test tag reads...")
     test_tag_reads <- dat$tag_reads %>% dplyr::filter(tagID %in% test_tags)
     insert_results <- test_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test",
@@ -651,6 +659,7 @@ pitdb_load_file <- function(ch = NULL,
     if (verbose) print_tibble(test_tag_reads[insert_results,])
 
     #### Insert unknown tag reads ----
+
     cat("\tInserting unknown tag reads...")
     unkn_tag_reads <-
       dat$tag_reads %>%
@@ -662,6 +671,7 @@ pitdb_load_file <- function(ch = NULL,
     if (verbose) print_tibble(unkn_tag_reads)
 
     #### Check to make sure all tag_reads were used ----
+
     dat$tag_reads %>%
       dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads, unkn_tag_reads)) %>% warn_tag_reads_not_inserted
   } else {
@@ -669,7 +679,8 @@ pitdb_load_file <- function(ch = NULL,
   }
 
   ##### Insert statuses ####
-  cat("\tInserting statuses...")
+
+    cat("\tInserting statuses...")
   if(!is.null(dat$statuses)){
     insert_results <- dat$statuses %>% insert_table_data(ch = ch, whch_table = "tblStatus", import_ID = import_ID,
                        ignore_errors = ignore_insert_errors, verbose = verbose)
@@ -680,6 +691,7 @@ pitdb_load_file <- function(ch = NULL,
   }
 
   ##### Insert uploads ####
+
   cat("\tInserting uploads...")
   if(!is.null(dat$uploads)){
     insert_results <- dat$uploads %>% insert_table_data(ch = ch, whch_table = "tblUpload", import_ID = import_ID,
@@ -691,6 +703,7 @@ pitdb_load_file <- function(ch = NULL,
   }
 
   ##### Insert bad records ####
+
   cat("\tInserting bad records...")
   if(!is.null(dat$bad_recs)){
     insert_results <- dat$bad_recs %>% insert_table_data(ch = ch, whch_table = "tblBadRecord", import_ID = import_ID,
