@@ -4,7 +4,7 @@
 #'
 #'@description The function will create and/or fill in nest attempt records from info on band no, date and burrow.
 #'
-#'@param dt A dtaframe containing at least fields: \code{Band, Burrow, Date}
+#'@param dt A dataframe containing at least fields: \code{Band, Burrow, Date}
 #'@param ch Open RODBC channel connecting to the database
 #'
 #'@details If no record currently exists in tblNestAttempt for this bird/burrow combination in this year, then a new record is created.
