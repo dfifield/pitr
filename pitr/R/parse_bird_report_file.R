@@ -44,6 +44,7 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
 
   # If file is from direct dowload from CableConnect, then parse download date
   # and time as FDate and FTime (fetch date and time). Fetch times are encoded in each data line for "WiFi" fetch_type.
+  fetchDateTime <- NA
   if(fetch_type == "CableConnect") {
     parts <- stringr::str_split(basename(filename), "_")
     fetchDateTime <- as.POSIXct(strptime(paste0(parts[[1]][2], " ", parts[[1]][3]), format = "%Y%m%d %H%M%S"))
