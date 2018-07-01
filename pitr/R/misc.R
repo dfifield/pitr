@@ -67,8 +67,9 @@ do_note <- function(s, def = NULL) {
 }
 
 
-
-# called once from per_dataclass_filter for each board in data with brd_df containing all rows for that board
+# Filter out (ie keep) any rows (tag detections) that occur during a deployment of this board. Deployments
+# that have not yet ended (ie ToDate is NA) are also handled.
+# called once from per_dataclass_filter for each board in data with brd_df containing all rows for that board.
 # my depl is table of all board deployments.
 # Note the use of as.character() to avoid any funky timezone conversions when as.Date is called with a POSIXct date.
 # In that case, dateTimes with time > 21:30 were being converted to the following day.
@@ -82,7 +83,10 @@ per_board_filter <- function(brd_df, mydepl){
     split(.$rowid) %>%
     map_dfr(~ dplyr::filter(brd_df, between(as.Date(as.character(dateTime)),
                                             as.Date(as.character(.$FromDate)),
-                                            as.Date(as.character(.$ToDate)))))
+                                            as.Date(as.character(.$ToDate))) ||
+                                    (is.na(.$ToDate) && as.Date(as.character(.$FromDate)) <= as.Date(as.character(dateTime)))
+                      )
+              )
 }
 
 # called from pitdb_load_file once for each element of the data list (ie. tag_reads, statuses, uploads, bad_recs)
