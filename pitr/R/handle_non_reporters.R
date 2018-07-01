@@ -1,5 +1,5 @@
 
-handle_non_reporters <- function(record_non_reporters, dat, filename) {
+handle_non_reporters <- function(ch, import_ID, record_non_reporters, display_non_reporters, date_, dat, filename) {
 
   # This only makes sense to do for datafiles from base stations (ie. fetch_type == WiFi).
   # this is ensured by check at start pitdb_load_file.

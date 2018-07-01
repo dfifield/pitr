@@ -207,7 +207,7 @@ pitdb_load_file <- function(ch = NULL,
   cat("done\n")
 
   ##### handle non_reporters ####
-  handle_non_reporters(record_non_reporters, dat, filename)
+  handle_non_reporters(ch, import_ID, record_non_reporters, display_non_reporters, date_, dat, filename)
 
   #################################################
   ####### Insert each type of record from dat #####
