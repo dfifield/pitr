@@ -7,7 +7,7 @@
 pitdb_impute_nest_attempt(dt, ch)
 }
 \arguments{
-\item{dt}{A dtaframe containing at least fields: \code{Band, Burrow, Date}}
+\item{dt}{A dataframe containing at least fields: \code{Band, Burrow, Date}}
 
 \item{ch}{Open RODBC channel connecting to the database}
 }
