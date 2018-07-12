@@ -23,7 +23,7 @@ ignored. Default = \code{TRUE}.}
 \item{test_board_ID}{The board ID of the test board (normally 1). Used to
 ignore testing data.}
 
-\item{verbose}{If \code{TRUE}, print a banner for each processed file.}
+\item{verbose}{If \code{TRUE}, print a message if file contains "no updates"}
 }
 \value{
 Returns a list with elements \code{tag_reads, statuses, uploads,
