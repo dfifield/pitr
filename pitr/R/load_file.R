@@ -141,13 +141,15 @@ pitdb_load_file <- function(ch = NULL,
   tblImports <- RODBC::sqlFetch(ch, "tblImports", as.is = T) %>%
     ensure_data_is_returned
 
+  # Check if filename in list of imported files with or without full path.
   res <- if (compare_full_pathname) {
       dplyr::filter(tblImports, Filename == filename)
     } else {
       dplyr::filter(tblImports, basename(Filename) == basename(filename))
     }
-    ensure_not_already_imported(res) %>%
-    nrow() == 0 || return(FALSE)
+
+  # Print warning (and quit) if nrow(res) is not 0, ie if the file has already been imported
+  ensure_not_already_imported(res) %>% nrow() == 0 || return(FALSE)
 
   # Parse file and give summary
   dat <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
