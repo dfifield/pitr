@@ -15,7 +15,7 @@
 #'  ignored. Default = \code{TRUE}.
 #'@param test_board_ID The board ID of the test board (normally 1). Used to
 #'  ignore testing data.
-#'@param verbose If \code{TRUE}, print a banner for each processed file.
+#'@param verbose If \code{TRUE}, print a message if file contains "no updates"
 #'
 #'@details This function reads a text file of records that have been extracted
 #'  from a monitor board. These files are typically downloaded via direct cable
@@ -155,7 +155,7 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
   }
 
 
-  # Optinally remove data coming from the test board. This prevents accidental
+  # Optionally remove data coming from the test board. This prevents accidental
   # insertion of info from the test board that was in the RPi dbase when it was
   # deployed in the field.
   if (ignore_test_board) {
