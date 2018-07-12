@@ -77,8 +77,15 @@ per_board_filter <- function(brd_df, mydepl){
   # get deployments for this board
   mydepl <- filter(mydepl, BoardID == unique(brd_df$BoardID))
 
+  print(paste0("Calling per_board_filter for board ", unique(brd_df$BoardID)))
+  print("mydepl =")
+  print(mydepl)
+
+  print("Candidate rows to keep:")
+  print(brd_df, n = nrow(brd_df))
+
   # for each deployment, filter on dates
-  mydepl %>%
+  x <- mydepl %>%
     rowid_to_column() %>%
     split(.$rowid) %>%
     map_dfr(~ dplyr::filter(brd_df, between(as.Date(as.character(dateTime)),
@@ -87,6 +94,9 @@ per_board_filter <- function(brd_df, mydepl){
                                     (is.na(.$ToDate) && as.Date(as.character(.$FromDate)) <= as.Date(as.character(dateTime)))
                       )
               )
+  print("returning:")
+  print(x, n = nrow(x))
+  x
 }
 
 # called from pitdb_load_file once for each element of the data list (ie. tag_reads, statuses, uploads, bad_recs)
