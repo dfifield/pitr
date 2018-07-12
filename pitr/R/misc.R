@@ -73,17 +73,17 @@ do_note <- function(s, def = NULL) {
 # my depl is table of all board deployments.
 # Note the use of as.character() to avoid any funky timezone conversions when as.Date is called with a POSIXct date.
 # In that case, dateTimes with time > 21:30 were being converted to the following day.
-per_board_filter <- function(brd_df, mydepl){
+per_board_filter <- function(brd_df, mydepl, debug = FALSE){
   # get deployments for this board
   mydepl <- filter(mydepl, BoardID == unique(brd_df$BoardID))
 
-  print(paste0("Calling per_board_filter for board ", unique(brd_df$BoardID)))
-  print("mydepl =")
-  print(mydepl)
-
-  print("Candidate rows to keep:")
-  print(brd_df, n = nrow(brd_df))
-
+  if(debug) {
+    print(paste0("Calling per_board_filter for board ", unique(brd_df$BoardID)))
+    print("mydepl =")
+    print(mydepl)
+    print("Candidate rows to keep:")
+    print(brd_df, n = nrow(brd_df))
+  }
   # for each deployment, filter on dates
   x <- mydepl %>%
     rowid_to_column() %>%
@@ -94,8 +94,11 @@ per_board_filter <- function(brd_df, mydepl){
                                     (is.na(.$ToDate) && as.Date(as.character(.$FromDate)) <= as.Date(as.character(dateTime)))
                       )
               )
-  print("returning:")
-  print(x, n = nrow(x))
+  if (debug) {
+    print("returning:")
+    print(x, n = nrow(x))
+  }
+
   x
 }
 
