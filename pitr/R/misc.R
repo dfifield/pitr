@@ -111,3 +111,11 @@ per_dataclass_filter <- function(df, mydepl) {
 }
 
 
+# print out records from a download file with the name of the record type (tag_read, status, etc) if recs is not empty or NULL
+print_recs <- function(recs, nm) {
+  if(is.not.null(recs) && nrow(recs) > 0) {
+    cat(sprintf("\n%s:\n", nm))
+    print(recs, n = nrow(recs))
+    cat("\n")
+  }
+}
