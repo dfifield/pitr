@@ -152,10 +152,12 @@ pitdb_load_file <- function(ch = NULL,
   ensure_not_already_imported(res) %>% nrow() == 0 || return(FALSE)
 
   # Parse file and give summary
-  dat <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
+  dat <- dat_orig <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
                                       test_board_ID = test_board_ID, verbose = T)
 
-  cat(sprintf("%d rows read from file\n", map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+  tot_recs <- map_if(dat, is.not.null, nrow) %>% unlist
+  cat(sprintf("%d rows read from file: \n", tot_recs %>% sum))
+  print(tot_recs)
 
   # Remove data outside specified date range and override limit_to_deploy_dates
   # if from_date and to_date are given. Note we've already made sure both of from_date and to_date
@@ -175,10 +177,20 @@ pitdb_load_file <- function(ch = NULL,
     strsql <- paste0("SELECT tblBoardDeploy.BoardID, tblBoardDeploy.FromDate, tblBoardDeploy.ToDate ",
         "FROM tblBoardDeploy;")
     depl <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-
     dat <- dat %>%  map_if(is.not.null, per_dataclass_filter, depl)
 
-    cat(sprintf("%d records retained after deployment date filtering.\n",  map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+    # get remaining record numbers
+    rem_recs <- map_if(dat, is.not.null, nrow) %>% unlist
+    cat(sprintf("%d records retained after deployment date filtering:\n",  rem_recs %>% sum))
+    print(rem_recs)
+
+    # show what records were rejected
+    num_filt <- sum(tot_recs - rem_recs)
+    if (num_filt > 0) {
+      cat(sprintf("\nThe following %d records were filtered out due to deployment date filtering:", num_filt))
+      diffs <- purrr::map2(dat_orig, dat, function(x, y) dplyr::setdiff(x, y))
+      purrr::walk2(diffs, names(diffs), print_recs)
+    }
   }
 
   # Check if any data left to process
