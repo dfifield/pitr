@@ -69,7 +69,8 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
   bad_recs_idx <- grep("Bad record", dat$string)
   if (length(bad_recs_idx) != 0) {
     bad_recs <- tidyr::separate(dplyr::slice(dat, bad_recs_idx), "string", sep = "[ ]+",
-                                into = c("FDate", "FTime", "WiFiID",  "BoardID"), extra = "drop", convert = T)
+                                into = c("FDate", "FTime", "WiFiID",  "BoardID"), extra = "drop")
+    bad_recs$BoardID <- as.integer(bad_recs$BoardID)
     bad_recs$fetchDateTime <- as.POSIXct(strptime(paste0(bad_recs$FDate, " ", bad_recs$FTime), format = "%Y-%m-%d %H:%M:%S"))
     bad_recs <- dplyr::select(bad_recs, -FDate, -FTime)
     retval$bad_recs <- bad_recs
@@ -106,17 +107,21 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
   tag_reads <- as.data.frame(sub(" T ", " ", dat[,1]))
   names(tag_reads) <- "string"
 
+  # Cannout use "convert = T" here because if the tagID column only contains tags with digits 0-9 they will be converted to integers
+  # and if any of them start with some number of 0's these will be lost.
   tag_reads <- tidyr::separate(dplyr::slice(tag_reads, grep(" T ", dat$string)), "string",
                      into =  switch(fetch_type,
                                     WiFi = c("FDate", "FTime", "WiFiID",  "BoardID", "Date", "Time", "numread", "tagID"),
                                     CableConnect = c("BoardID", "Date", "Time", "numread", "tagID"),
                                     "error"),
-                     sep = "[ ]+",
-                     convert = T)
+                     sep = "[ ]+")
   if(nrow(tag_reads) > 0) {
+    tag_reads$BoardID <- as.integer(tag_reads$BoardID)
+    tag_reads$numread <- as.integer(tag_reads$numread)
     tag_reads$dateTime <- as.POSIXct(strptime(paste0(tag_reads$Date, " ", tag_reads$Time), format = "%Y-%m-%d %H:%M:%S"))
     tag_reads$Date <- NULL
     tag_reads$Time <- NULL
+
     if(fetch_type == "WiFi") {
       tag_reads$fetchDateTime <- as.POSIXct(strptime(paste0(tag_reads$FDate, " ", tag_reads$FTime), format = "%Y-%m-%d %H:%M:%S"))
       tag_reads$FDate <- NULL
