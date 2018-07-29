@@ -177,9 +177,11 @@ pitdb_load_file <- function(ch = NULL,
     strsql <- paste0("SELECT tblBoardDeploy.BoardID, tblBoardDeploy.FromDate, tblBoardDeploy.ToDate ",
         "FROM tblBoardDeploy;")
     depl <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-    dat <- dat %>%  map_if(is.not.null, per_dataclass_filter, depl)
 
-    # get remaining record numbers
+    # filter each of tag_reads, statuses, etc in turn.
+    dat <- dat %>% map_if(is.not.null, per_dataclass_filter, depl)
+
+    # get remaining numbers of records
     rem_recs <- map_if(dat, is.not.null, nrow) %>% unlist
     cat(sprintf("%d records retained after deployment date filtering:\n",  rem_recs %>% sum))
     print(rem_recs)
