@@ -74,6 +74,10 @@ do_note <- function(s, def = NULL) {
 # Note the use of as.character() to avoid any funky timezone conversions when as.Date is called with a POSIXct date.
 # In that case, dateTimes with time > 21:30 were being converted to the following day.
 per_board_filter <- function(brd_df, mydepl, debug = FALSE){
+
+  # make sure there is a column named "dateTime" (bad_recs don't have one). Just return dataframe if not
+  "dateTime" %in% colnames(brd_df) || return(brd_df)
+
   # get deployments for this board
   mydepl <- filter(mydepl, BoardID == unique(brd_df$BoardID))
 
