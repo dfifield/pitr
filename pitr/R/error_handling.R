@@ -1,3 +1,4 @@
+
 sql_failure <- function(e){
   # fetch what sql* returned
   . <- get(".", parent.frame())
@@ -79,6 +80,11 @@ warn_other_nest_attmpt <- function(e) {
   invisible(.)
 }
 
+no_active_boards_warn <- function(e){
+  . <- get(".", parent.frame())
+  warning("No active boards on that date.", immediate. = TRUE)
+  invisible(.)
+}
 
 ensure_data_is_returned <- ensurer::ensures_that(is.data.frame(.), fail_with = sql_failure)
 ensure_insert_success <- ensurer::ensures_that(length(.) == 0, fail_with = sql_failure)
@@ -89,5 +95,5 @@ warn_non_reporting <- ensurer::ensures_that(length(.) == 0, fail_with = boards_n
 ensure_not_already_imported <- ensurer::ensures_that(nrow(.) == 0, fail_with = file_already_imported)
 warn_no_nest_attempt <- ensurer::ensures_that(nrow(.) == 1, fail_with = no_nest_attmpt)
 warn_no_other_nest_attempt <- ensurer::ensures_that(nrow(.) == 0, fail_with = warn_other_nest_attmpt)
-
+warn_no_active_boards <- ensurer::ensures_that(length(.) != 0, fail_with = no_active_boards_warn)
 

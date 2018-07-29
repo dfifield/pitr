@@ -21,7 +21,7 @@ handle_non_reporters <- function(ch, import_ID, record_non_reporters, display_no
                     " ((tblBoardDeploy.FromDate)<=#", format(date_, format = "%Y-%b-%d"), "#) AND ",
                     " ((tblBoardDeploy.ToDate)>=#", format(date_, format = "%Y-%b-%d"), "# Or (tblBoardDeploy.ToDate) Is Null));")
     all_plot_brds <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
-    active_brds <- all_plot_brds$BoardID %>% unique %>% ensurer::ensure_that(length(.) != 0, err_desc = "No active boards on that date!")
+    active_brds <- all_plot_brds$BoardID %>% unique %>% warn_no_active_boards
 
     # get all boards reporting and non-reporting
     reporting <- dat %>%
