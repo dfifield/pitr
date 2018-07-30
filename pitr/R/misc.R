@@ -89,21 +89,22 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
     print(brd_df, n = nrow(brd_df))
   }
   # for each deployment, filter on dates
-  x <- mydepl %>%
+  filt <- mydepl %>%
     rowid_to_column() %>%
     split(.$rowid) %>%
-    map_dfr(~ dplyr::filter(brd_df, between(as.Date(as.character(dateTime)),
-                                            as.Date(as.character(.$FromDate)),
-                                            as.Date(as.character(.$ToDate))) ||
-                                    (is.na(.$ToDate) && as.Date(as.character(.$FromDate)) <= as.Date(as.character(dateTime)))
+    map_dfr(~ dplyr::filter(brd_df, between(dateTime, .$FromDate,  .$ToDate) |
+                                    (is.na(.$ToDate) & .$FromDate <= dateTime)
                       )
-              )
+    )
+
+  ensurer::ensure_that(filt, nrow(.) <= nrow(brd_df), err_desc = "More records after filtering than before!")
+
   if (debug) {
     print("returning:")
-    print(x, n = nrow(x))
+    print(filt, n = nrow(filt))
   }
 
-  x
+  filt
 }
 
 # called from pitdb_load_file once for each element of the data list (ie. tag_reads, statuses, uploads, bad_recs)
