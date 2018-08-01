@@ -1,0 +1,55 @@
+---
+title:  Logger Data Summary
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding,
+  output_dir = "C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/2018/Import records",
+  output_file = gsub("[- :]", "_", paste0(substr(inputFile,1,nchar(inputFile)-4), "_", Sys.time(), '.html'))) })
+output: html_document
+params:
+  files: ""
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r generic-header}
+#######################
+###### 
+######  Just knit this file (it will ask you to select files to import)
+######
+#######################
+
+date()
+```
+
+
+
+```{r set options}
+source("analysis settings.r", echo = T)
+
+sessionInfo()
+print(sprintf("files : %s", params$files))
+```
+
+
+## Get files and process them.
+```{r process_files, eval = T}
+files <- params$files
+if (files == "")
+  files <- choose.files() %>% ensure_that(length(.) != 0, err_desc = "No files to process.")
+
+#files <-  "C:\\Users\\fifieldd\\Documents\\Offline\\Projects\\Burrow_Logger\\Data\\2018\\Downloads\\gipi1_report_2018_07_09_12_40_07.txt"
+
+cat(sprintf("Processing %d files...\n", length(files)))
+
+mych <- pitdb_open("C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/Burrow logger master0.1.accdb")
+
+if (mych == -1)
+  stop("Failed to open database.")
+  
+files %>%
+  purrr::walk(function(.x, ch = mych) {pitdb_load_file(ch = ch, filename = .x, parse_summary = TRUE, ignore_insert_errors = TRUE)})
+
+pitdb_close(mych)
+```
+
+
