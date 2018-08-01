@@ -4,13 +4,17 @@
 \alias{pitdb_process_data_downloads}
 \title{Process downloaded PIT tag data}
 \usage{
-pitdb_process_data_downloads(db = NULL, path = NULL, start_time = XXXX,
-  end_time = XXXX, sleep_time = 10)
+pitdb_process_data_downloads(db = NULL, path = NULL, report_path = NULL,
+  compare_full_pathname = FALSE, start_time = NULL, end_time = NULL,
+  sleep_time = 30 * 60)
 }
 \arguments{
 \item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}
 
-\item{path}{The pathname for the folder where files will magically appear waiting to be processed. Usually placed there my Outlook or some other mailer.}
+\item{path}{The pathname to the folder where data files wait to be processed. Usually placed there my Outlook or some other mailer. Use C:/foo/bar/blah Unix forward
+slash notaion.}
+
+\item{report_path}{Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}}
 
 \item{start_time}{Time of day to start looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
 are not expected to arrive. Default \code{12:00:00 noon}}
@@ -18,14 +22,16 @@ are not expected to arrive. Default \code{12:00:00 noon}}
 \item{end_time}{Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
 are not expected to arrive. Default \code{14:00:00}}
 
-\item{sleep_time}{Minutes between checks for new files. Default 10 minutes.}
+\item{sleep_time}{Seconds between checks for new files. Default 30 * 60 (ie. 30 minutes).}
+
+\item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then comparing filenames in \code{path} to those already imported into \code{db} (in tblImports)
+only considers the filename and ignores the full pathname.}
 }
 \value{
 Doesn't normally return.
 }
 \description{
-The function waits for new datafiles to arrive in folder \code{path} and then executes and then calls other functions to insert data
-into database
+The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
 }
 \details{
 

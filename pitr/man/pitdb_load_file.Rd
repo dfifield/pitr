@@ -49,7 +49,8 @@ not reporting data in \code{filename} when \code{record_non_reporters}.}
 \item{parse_summary}{Print a summary of the parsed data file (default = \code{FALSE})}
 
 \item{ignore_insert_errors}{(default \code{FALSE}). If \code{TRUE}, then ignore errors when attempting to insert records
-into tag_reads, statuses, uploads, and bad_recs. This can be useful when loading a file downloaded from a board via
+into tag_reads, statuses, uploads, and bad_recs and print a warning instead. If \code{FALSE} then an error message is printed and execution terminates.
+Setting this to \code{TRUE} can be useful when loading a file downloaded from a board via
 direct \code{CableConnect} to ensure that no data (previously inserted via "WiFi" downloaded file) were missed.}
 
 \item{compare_full_pathname}{(default \code{FALSE}) If true then compare entire pathname when checking to see if \code{filename}
