@@ -42,7 +42,7 @@ pitdb_insert_chick_banding <- function(dt, ch){
                     "'", dt$Band, "' AS e1, ",
                     1462, " AS e2, ",
                     "'U' AS e3, ",
-                    "2 AS e4, ", # Gull Island. quick and dirty should really look this up.
+                    "2 AS e4, ", # XXXGull Island. quick and dirty should really look this up.
                     "'C' AS e5;")
     res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
     cat("done\n")

@@ -79,7 +79,7 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
   "dateTime" %in% colnames(brd_df) || return(brd_df)
 
   # get deployments for this board
-  mydepl <- filter(mydepl, BoardID == unique(brd_df$BoardID))
+  mydepl <- dplyr::filter(mydepl, BoardID == unique(brd_df$BoardID))
 
   if(debug) {
     print(paste0("Calling per_board_filter for board ", unique(brd_df$BoardID)))
@@ -90,9 +90,9 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
   }
   # for each deployment, filter on dates
   filt <- mydepl %>%
-    rowid_to_column() %>%
+    tibble::rowid_to_column() %>%
     split(.$rowid) %>%
-    map_dfr(~ dplyr::filter(brd_df, between(dateTime, .$FromDate,  .$ToDate) |
+    purrr::map_dfr(~ dplyr::filter(brd_df, dplyr::between(dateTime, .$FromDate,  .$ToDate) |
                                     (is.na(.$ToDate) & .$FromDate <= dateTime)
                       )
     )
@@ -112,7 +112,7 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
 per_dataclass_filter <- function(df, mydepl) {
   df %>%
   split(.$BoardID) %>%
-  map_dfr(per_board_filter, mydepl = mydepl)
+  purrr::map_dfr(per_board_filter, mydepl = mydepl)
 }
 
 

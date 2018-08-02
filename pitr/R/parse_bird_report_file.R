@@ -60,7 +60,7 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
     return(retval)
 
   # Detect no updates. This is a report file with no data. Should only happen with "WIFI" downloads.
-  if (nrow(dat) == 1 && str_detect(dat[1,], "no updates")){
+  if (nrow(dat) == 1 && stringr::str_detect(dat[1,], "no updates")){
     if (verbose) cat('File contains "no updates".\n')
     return(retval)
   }

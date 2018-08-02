@@ -139,8 +139,7 @@ pitdb_load_file <- function(ch = NULL,
                       err_desc = "from_date and to_date must both either be supplied or NULL" ))
 
   # Check if file already imorted. Rudimentary check which only considers filename
-  tblImports <- RODBC::sqlFetch(ch, "tblImports", as.is = T) %>%
-    ensure_data_is_returned
+  tblImports <- RODBC::sqlFetch(ch, "tblImports", as.is = T) %>% ensure_data_is_returned
 
   # Check if filename in list of imported files with or without full path.
   res <- if (compare_full_pathname) {
@@ -156,7 +155,7 @@ pitdb_load_file <- function(ch = NULL,
   dat <- dat_orig <- pitdb_parse_bird_report_file(filename, fetch_type = fetch_type, ignore_test_board = ignore_test_board,
                                       test_board_ID = test_board_ID, verbose = T)
 
-  tot_recs <- map_if(dat, is.not.null, nrow) %>% unlist
+  tot_recs <- purrr::map_if(dat, is.not.null, nrow) %>% unlist
   cat(sprintf("%d rows read from file: \n", tot_recs %>% sum))
   print(tot_recs)
 
@@ -168,9 +167,9 @@ pitdb_load_file <- function(ch = NULL,
 
     # remove data outside of specified date range
     dat <- dat %>%
-      map_if(.p = is.not.null, .f = function(dt) {filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
+      purrr::map_if(.p = is.not.null, .f = function(dt) {dplyr::filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
 
-    cat(sprintf("%d records retained after date filtering.\n",  map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+    cat(sprintf("%d records retained after date filtering.\n",  purrr::map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
   }
 
   # Filter out data outside deployment dates.
@@ -180,10 +179,10 @@ pitdb_load_file <- function(ch = NULL,
     depl <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
 
     # filter each of tag_reads, statuses, etc in turn.
-    dat <- dat %>% map_if(is.not.null, per_dataclass_filter, depl)
+    dat <- dat %>% purrr::map_if(is.not.null, per_dataclass_filter, depl)
 
     # get remaining numbers of records
-    rem_recs <- map_if(dat, is.not.null, nrow) %>% unlist
+    rem_recs <- purrr::map_if(dat, is.not.null, nrow) %>% unlist
     cat(sprintf("%d records retained after deployment date filtering:\n",  rem_recs %>% sum))
     print(rem_recs)
 
@@ -246,8 +245,8 @@ pitdb_load_file <- function(ch = NULL,
     if (limit_to_known_prefix) {
       orig <- nrow(dat$tag_reads)
       dat$tag_reads <- dat$tag_reads %>%
-        filter(map(known_prefix, ~str_detect(dat$tag_reads$tagID, .)) %>%
-                  reduce(`|`))
+        dplyr::filter(purrr::map(known_prefix, ~stringr::str_detect(dat$tag_reads$tagID, .)) %>%
+                  purrr::reduce(`|`))
       cat(sprintf("Removed %d records with unknown prefix...", orig - nrow(dat$tag_reads)))
     }
 
@@ -262,8 +261,8 @@ pitdb_load_file <- function(ch = NULL,
 
     cat("\tInserting web tag reads...")
     web_tag_reads <- dat$tag_reads %>% dplyr::filter(substr(tagID, 1, 4) == web_prefix)
-    insert_results <- web_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Web",
-                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    insert_results <- web_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID,
+                        read_type = "Web", ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
     if (verbose) print_tibble(web_tag_reads[insert_results,])
 
@@ -271,8 +270,8 @@ pitdb_load_file <- function(ch = NULL,
 
     cat("\tInserting test tag reads...")
     test_tag_reads <- dat$tag_reads %>% dplyr::filter(tagID %in% test_tags)
-    insert_results <- test_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Test",
-                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    insert_results <- test_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID,
+                      read_type = "Test", ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
     if (verbose) print_tibble(test_tag_reads[insert_results,])
 
@@ -283,8 +282,8 @@ pitdb_load_file <- function(ch = NULL,
       dat$tag_reads %>%
       dplyr::setdiff(dplyr::bind_rows(known_tag_reads, web_tag_reads, test_tag_reads)) %>%
       dplyr::distinct()
-    insert_results <- unkn_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID, read_type = "Unknown",
-                       ignore_errors = ignore_insert_errors, verbose = verbose)
+    insert_results <- unkn_tag_reads %>% insert_table_data(ch = ch, whch_table = "tblOtherTagRead", import_ID = import_ID,
+                    read_type = "Unknown", ignore_errors = ignore_insert_errors, verbose = verbose)
     cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
     if (verbose) print_tibble(unkn_tag_reads)
 
