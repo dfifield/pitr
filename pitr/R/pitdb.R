@@ -1,3 +1,4 @@
+#' @importFrom magrittr %>%
 #'@export
 #'@title Open a pit tag database
 #'
@@ -20,7 +21,7 @@ pitdb_open <- function(pathname){
   RODBC::odbcDriverConnect(paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=", pathname))
 }
 
-
+#' @importFrom magrittr %>%
 #'@export
 #'@title Close a pit tag database
 #'

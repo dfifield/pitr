@@ -1,4 +1,4 @@
-
+#' @importFrom magrittr %>%
 #'@export
 #'@title Impute nest attempt
 #'

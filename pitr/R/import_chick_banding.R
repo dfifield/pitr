@@ -1,4 +1,5 @@
 #'@export
+#' @importFrom magrittr %>%
 #'@title Import chick banding
 #'
 #'@description The function import a single chick banding record to the database.

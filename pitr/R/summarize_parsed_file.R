@@ -1,5 +1,4 @@
-
-
+#' @importFrom magrittr %>%
 #'@export
 #'@title Print a summary of data parsed from a Raspberry Pi report file
 #'

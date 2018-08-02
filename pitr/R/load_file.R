@@ -1,4 +1,4 @@
-
+#' @importFrom magrittr %>%
 #'@export
 #'@title Load a PIT tag datafile into a database.
 #'
@@ -196,16 +196,6 @@ pitdb_load_file <- function(ch = NULL,
     }
   }
 
-  # Check if any data left to process
-  if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
-    cat("No data to load. Qutting...\n")
-    return(TRUE)
-  }
-
-  #### data summary ####
-  if (parse_summary)
-    dat %>% pitdb_summarize_parsed_file(ch = ch, verbose = F)
-
   # Look up fetch_type
   strsql <- paste0("SELECT lkpFetchType.FetchTypeID, lkpFetchType.FetchTypeText FROM lkpFetchType WHERE ",
                    "(((lkpFetchType.FetchTypeText)='", fetch_type, "'));");
@@ -222,6 +212,16 @@ pitdb_load_file <- function(ch = NULL,
   import_ID <- get_sql_ID(ch)
   cat(paste0("import ID = ", import_ID, "..."))
   cat("done\n")
+
+  # Check if any data left to process
+  if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
+    cat("No data to load. Qutting...\n")
+    return(TRUE)
+  }
+
+  #### data summary ####
+  if (parse_summary)
+    dat %>% pitdb_summarize_parsed_file(ch = ch, verbose = F)
 
   ##### handle non_reporters ####
   handle_non_reporters(ch, import_ID, record_non_reporters, display_non_reporters, date_, dat, filename)
