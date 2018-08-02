@@ -18,11 +18,7 @@ date()
 
 ```{r set options}
 library(pitr)
-library(ensurer)
 library(magrittr)
-library(stringr)
-library(RODBC)
-library(purrr)
 
 sessionInfo()
 print(sprintf("files : %s", params$files))
