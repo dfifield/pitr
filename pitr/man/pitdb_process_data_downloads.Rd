@@ -5,8 +5,8 @@
 \title{Process downloaded PIT tag data}
 \usage{
 pitdb_process_data_downloads(db = NULL, path = NULL, report_path = NULL,
-  compare_full_pathname = FALSE, start_time = NULL, end_time = NULL,
-  sleep_time = 30 * 60)
+  logfile_path = NULL, log_level = "INFO", compare_full_pathname = FALSE,
+  start_time = NULL, end_time = NULL, sleep_time = 30 * 60)
 }
 \arguments{
 \item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}
@@ -16,11 +16,16 @@ slash notaion.}
 
 \item{report_path}{Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}}
 
+\item{logfile_path}{Full pathname of file to receive logging information. Defaults to \code{dirname(db)/import_log.txt}.}
+
+\item{log_level}{One of \code{logging::loglevels}. E.g. \code{ c("NOTSET", "FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL", "FATAL") }
+Default is \code{"INFO"}}
+
 \item{start_time}{Time of day to start looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. Default \code{12:00:00 noon}}
+are not expected to arrive. Default \code{14:00:00 noon}}
 
 \item{end_time}{Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. Default \code{14:00:00}}
+are not expected to arrive. Default \code{14:30:00}}
 
 \item{sleep_time}{Seconds between checks for new files. Default 30 * 60 (ie. 30 minutes).}
 
@@ -28,7 +33,7 @@ are not expected to arrive. Default \code{14:00:00}}
 only considers the filename and ignores the full pathname.}
 }
 \value{
-Doesn't normally return.
+Doesn't normally return, but -1 on error.
 }
 \description{
 The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
