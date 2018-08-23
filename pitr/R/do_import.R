@@ -1,13 +1,21 @@
+#'@export
+#'@title Import data file(s) into database
+#'
+#'@description Import one or more files into the database by rendering import_template.RMD included with the package.
 
-# Import one or more files into the database by rendering.
-#
-# files - files to import (including full pathname)
-# report_path - where to store the resulting of of rendering the import .RMD
-do_import <- function(db = NULL, files = NULL, report_path = NULL) {
+#'@param db The pathname to the Microsoft Access database to insert downloaded files into.
+#'@param files files to import (including full pathname)
+#'@param report_path The pathname to the folder where rendered output should be saved.
+#'@details This function renders and existing RMD template \code{import_template.RMD} which causes \code{files} to be imported  to \code{db}.
+#'It is called by \code{pitdb_process_data_downloads} (which is used by the \code{import server} to regularly import downloaded data.) It can
+#'also be called directly.
+#'
+#'@section Author: Dave Fifield
+pitdb_do_import <- function(db = NULL, files = NULL, report_path = NULL) {
 
-  !is.null(db) || stop("do_import: no db specified.")
+  !is.null(db) || stop("pitdb_do_import: no db specified.")
   !is.null(files) || return()
-  !is.null(report_path) || stop("db_import: no report_path specified.")
+  !is.null(report_path) || stop("pitdb_do_import: no report_path specified.")
 
   # needed to make render() happy
   Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/pandoc/")
