@@ -70,7 +70,7 @@ pitdb_process_data_downloads <- function(db = NULL,
   while(TRUE) {
     if (length(new_files) != 0) {
       logging::loginfo("Processing new files: %s", paste(new_files, collapse = ", "))
-      do_import(db = db, files = file.path(prev$path, new_files, fsep = "\\"), report_path = report_path)
+      pitdb_do_import(db = db, files = file.path(prev$path, new_files, fsep = "\\"), report_path = report_path)
     }
 
     # sleep until next check
