@@ -86,7 +86,7 @@ pitdb_process_data_downloads <- function(db = NULL,
     prev <- curr
 
     # keep tidy. necessary?
-    gc()
+    #gc()
  }
 }
 
