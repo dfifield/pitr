@@ -62,13 +62,16 @@ pitdb_process_data_downloads <- function(db = NULL,
   # get initial snapshot of existing files in download folder and keep only ".txt" files
   prev <- fileSnapshot(path)
   new_files <- filter_unwanted(rownames(prev$info), db, compare_full_pathname)
-  is.character(new_files) || return(-1)
+  if(!is.character(new_files)) {
+    logging::loginfo("Shutting down import server.")
+    return(-1)
+  }
 
   logging::logdebug("New files: %s", new_files)
 
   # Process new_files (if any), sleep, check for new files, process new files, ad nauseum...
   while(TRUE) {
-    if (length(new_files) != 0) {
+    if (is.character(new_files) && length(new_files) != 0) {
       logging::loginfo("Processing new files: %s", paste(new_files, collapse = ", "))
       pitdb_do_import(db = db, files = file.path(prev$path, new_files, fsep = "\\"), report_path = report_path)
     }
@@ -81,7 +84,12 @@ pitdb_process_data_downloads <- function(db = NULL,
     # Get a new snapshot and compare
     curr <- fileSnapshot(path)
     new_files <- filter_unwanted(changedFiles(prev, curr)$added, db, compare_full_pathname)
-    is.character(new_files) || return(-1)
+    if(!is.character(new_files)) {
+      logging::logerror("Skipping this round of imports. Hoping database will be available next time...")
+      next
+    }
+
+    # got here so new_files is OK
     logging::logdebug("New files: %s", new_files)
     prev <- curr
 
@@ -96,7 +104,6 @@ filter_unwanted <- function(files, db, compare_full_pathname){
   # Open database
   if ((dbh <- pitdb_open(db)) == -1){
     logging::logerror("Failed to open database: %s", db)
-    logging::loginfo("Shutting down import server.")
     return(-1)
   }
 
