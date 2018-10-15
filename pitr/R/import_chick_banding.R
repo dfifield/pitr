@@ -8,6 +8,7 @@
 #'@param ch Open RODBC channel connecting to the database
 #'
 #'@details Creates appropriate entries in tblBirds, tblNestAttempt, tblCapture, tblMorpho, tblTagDeployment, tblBurrowCheck
+#'@note Currently assumes that all birds are at Gull Island, tags starting with 062 are Cyntag 10mm tags, otherwise they are CoreRFID 12mm tags.
 #'@return Nothing.
 #'@section Author: Dave Fifield
 
@@ -28,7 +29,7 @@ pitdb_insert_chick_banding <- function(dt, ch){
       return()
     }
 
-    # This shouldn't really be done herer... bands should exist in the database apriori
+    # This shouldn't really be done here... bands should exist in the database apriori
     cat("\tCreating tblBands record...")
     strsql <- paste0("INSERT INTO tblBands ( [BandNo]) SELECT ",
                     "'", dt$Band, "' AS e1;")
@@ -85,13 +86,31 @@ pitdb_insert_chick_banding <- function(dt, ch){
     cat("\tCreating tblMorph record...")
     strsql <- with(dt, paste0("INSERT INTO tblMorpho ( [CaptureID], [BirdPlusBagWt], [BagWt], [BirdWt], [Wing], [Tarsus]) SELECT ",
                     captureID, " AS e1, ",
-                    TotW, " AS e2, ",
-                    BagW, " AS e3, ",
-                    TotW - BagW, " AS e4, ",
-                    Wing, " AS e5, ",
-                    Tarsus, " AS e6;"))
+                    do_na(TotW), " AS e2, ",
+                    do_na(BagW), " AS e3, ",
+                    do_na(TotW) - BagW, " AS e4, ",
+                    do_na(Wing), " AS e5, ",
+                    do_na(Tarsus), " AS e6;"))
     res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
     cat("done\n")
+
+    #### create a tblTag record ####
+    strsql <- paste0("SELECT tblTags.TagID FROM tblTags WHERE (((tblTags.TagID)='", dt$PIT, "'));")
+    res <- RODBC::sqlQuery(ch, strsql) %>% ensure_data_is_returned
+
+    if (nrow(res) == 0) {
+      cat("\tCreating tblTags record...")
+
+      # insert tag into database - quick and dirty should be looked up.
+      strsql <- paste0("INSERT INTO tblTags ( [TagID], [Manufac], [Type]) SELECT ",
+                    "'", dt$PIT, "' AS e1,",
+                    ifelse(dat$PIT[1:3] == "062", 2, -1293520891L), " AS e2, ",
+                    ifelse(dat$PIT[1:3] == "062", 2, -940491536L), " AS e3; "
+                    )
+      res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
+      cat("done\n")
+    }
+
 
     #### create a tblTagDeployment record ####
     if(!is.na(dt$PIT)) {
@@ -129,4 +148,14 @@ pitdb_insert_chick_banding <- function(dt, ch){
             do_note(NA), " AS e4;"))
   res <- RODBC::sqlQuery(ch, strsql) %>% ensure_insert_success
   cat("done\nDone\n")
+}
+
+
+# auxilliary function to deal with input fields that can be NA
+do_na <- function(dat) {
+  if(is.na(dat)){
+    "Null"
+  } else {
+    dat
+  }
 }
