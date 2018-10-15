@@ -20,6 +20,9 @@ The function import a single chick banding record to the database.
 \details{
 Creates appropriate entries in tblBirds, tblNestAttempt, tblCapture, tblMorpho, tblTagDeployment, tblBurrowCheck
 }
+\note{
+Currently assumes that all birds are at Gull Island, tags starting with 062 are Cyntag 10mm tags, otherwise they are CoreRFID 12mm tags.
+}
 \section{Author}{
  Dave Fifield
 }
