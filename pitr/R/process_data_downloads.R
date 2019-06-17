@@ -56,6 +56,9 @@ pitdb_process_data_downloads <- function(db = NULL,
     return(-1)
   }
 
+  logging::loginfo(sprintf("Using database: %s", db))
+  logging::loginfo(sprintf("Reading downloaded data files from: %s", path))
+
   if(is.null(report_path))
     report_path <- file.path(dirname(path), "Import records")
 
