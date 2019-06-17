@@ -125,8 +125,10 @@ pitdb_load_file <- function(ch = NULL,
                             parse_summary = FALSE,
                             ignore_insert_errors = FALSE,
                             compare_full_pathname = FALSE,
-                            verbose = FALSE)
+                            verbose = FALSE,
+                            debug = FALSE)
 {
+  if (debug) browser()
 
   cat(paste0("\n######################################\nProcessing ", basename(filename), "\n"))
 
