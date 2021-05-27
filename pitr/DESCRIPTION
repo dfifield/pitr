@@ -8,7 +8,7 @@ Description: This package contains methods to allow importing and extracting dat
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.0.1
+RoxygenNote: 7.1.1
 Imports: RODBC,
     tidyr,
     dplyr

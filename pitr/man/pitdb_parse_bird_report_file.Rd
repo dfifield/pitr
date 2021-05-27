@@ -4,8 +4,13 @@
 \alias{pitdb_parse_bird_report_file}
 \title{Parse data from a Raspberry Pi report file}
 \usage{
-pitdb_parse_bird_report_file(filename, fetch_type, ignore_test_board = TRUE,
-  test_board_ID = 1, verbose = FALSE)
+pitdb_parse_bird_report_file(
+  filename,
+  fetch_type,
+  ignore_test_board = TRUE,
+  test_board_ID = 1,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{filename}{Path to file containing data dumped from a monitor board.}

@@ -4,9 +4,17 @@
 \alias{pitdb_process_data_downloads}
 \title{Process downloaded PIT tag data}
 \usage{
-pitdb_process_data_downloads(db = NULL, path = NULL, report_path = NULL,
-  logfile_path = NULL, log_level = "INFO", compare_full_pathname = FALSE,
-  start_time = NULL, end_time = NULL, sleep_time = 30 * 60)
+pitdb_process_data_downloads(
+  db = NULL,
+  path = NULL,
+  report_path = NULL,
+  logfile_path = NULL,
+  log_level = "INFO",
+  compare_full_pathname = FALSE,
+  start_time = NULL,
+  end_time = NULL,
+  sleep_time = 30 * 60
+)
 }
 \arguments{
 \item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}

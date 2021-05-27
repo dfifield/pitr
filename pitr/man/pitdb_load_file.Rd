@@ -4,13 +4,25 @@
 \alias{pitdb_load_file}
 \title{Load a PIT tag datafile into a database.}
 \usage{
-pitdb_load_file(ch = NULL, filename = NULL, date_ = NULL,
-  fetch_type = "WiFi", from_date = NULL, to_date = NULL,
-  limit_to_deploy_dates = TRUE, limit_to_known_prefix = TRUE,
-  ignore_test_board = TRUE, test_board_ID = 1,
-  record_non_reporters = TRUE, display_non_reporters = TRUE,
-  parse_summary = FALSE, ignore_insert_errors = FALSE,
-  compare_full_pathname = FALSE, verbose = FALSE)
+pitdb_load_file(
+  ch = NULL,
+  filename = NULL,
+  date_ = NULL,
+  fetch_type = "WiFi",
+  from_date = NULL,
+  to_date = NULL,
+  limit_to_deploy_dates = TRUE,
+  limit_to_known_prefix = TRUE,
+  ignore_test_board = TRUE,
+  test_board_ID = 1,
+  record_non_reporters = TRUE,
+  display_non_reporters = TRUE,
+  parse_summary = FALSE,
+  ignore_insert_errors = FALSE,
+  compare_full_pathname = FALSE,
+  verbose = FALSE,
+  debug = FALSE
+)
 }
 \arguments{
 \item{ch}{Channel to open database returned from \code{pitdb.open}.}
