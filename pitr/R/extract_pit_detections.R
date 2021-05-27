@@ -48,7 +48,7 @@ pitdb_extract_detections <- function(pitdb.path = NULL,
   year.selection <- ""
 
   # setwd and open connection
-  channel1 <- RODBC::odbcConnectAccess(pitdb.path, uid = "")
+  channel1 <- RODBC::odbcConnectAccess2007(pitdb.path, uid = "")
 
   # write SQL selection for year
   if (!missing(years)) {
