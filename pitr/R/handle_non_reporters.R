@@ -38,7 +38,7 @@ handle_non_reporters <- function(ch, import_ID, record_non_reporters, display_no
       if(display_non_reporters){
         dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
           dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
-          `[[`("brd_bur") %>% # there3's gotta be a better way
+          `[[`("brd_bur") %>% # there's gotta be a better way
           paste0(collapse = ", ") %>%
           warn_non_reporting
       }
