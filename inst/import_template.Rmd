@@ -1,0 +1,48 @@
+---
+title:  Logger Data Import Summary
+output: html_document
+params:
+  files: ""
+  db: ""
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r generic-header}
+###################
+##### This file is rendered by do_import to import files into the database giving an html report.
+
+date()
+```
+
+
+```{r set options}
+library(pitr)
+library(magrittr)
+
+sessionInfo()
+print(sprintf("files : %s", params$files))
+```
+
+
+## Get files and process them.
+```{r process_files, eval = T}
+files <- params$files 
+db <- params$db
+
+if (length(files) == 0) {
+  print("No files to process.")
+} else if (length(db) == 0){
+  print("No database name given.")
+} else {
+  cat(sprintf("Processing %d files...\n", length(files)))
+  mych <- pitdb_open(db)
+  
+  if (mych == -1) {
+    print("Failed to open database.")
+  } else {  
+    files %>% purrr::walk(function(.x, ch = mych) {pitdb_load_file(ch = ch, filename = .x, parse_summary = TRUE, ignore_insert_errors = TRUE)})
+    pitdb_close(mych)
+  }
+}
+```
