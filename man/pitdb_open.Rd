@@ -18,8 +18,7 @@ The function will connect to the Access PIT tag database via ODBC
 }
 \details{
 The function will open the Access database specified by
- \code{pathname}. Note that it only works in a 32-bit R session since the
- only 32-bit Access drivers are available.
+ \code{pathname}.
 }
 \section{Author}{
  Dave Fifield

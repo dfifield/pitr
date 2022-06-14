@@ -11,7 +11,6 @@
 #'@param years \[integer:\sQuote{NULL}]\cr Optional. Either a single year or a
 #'  vector of two years denoting "from" and "to" (inclusive).
 #'
-#'@details
 #'@section Author: Dave Fifield
 
 
@@ -39,10 +38,6 @@ pitdb_extract_detections <- function(pitdb.path = NULL,
   )
 
   checkmate::reportAssertions(coll)
-
-  # test for 32-bit architecture
-  if (Sys.getenv("R_ARCH") != "/i386")
-    stop("You are not running a 32-bit R session. You must run ECSAS.extract in a 32-bit R session due to limitations in the RODBC Access driver.")
 
   # initialize
   year.selection <- ""

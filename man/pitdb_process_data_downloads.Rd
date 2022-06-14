@@ -19,8 +19,8 @@ pitdb_process_data_downloads(
 \arguments{
 \item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}
 
-\item{path}{The pathname to the folder where data files wait to be processed. Usually placed there my Outlook or some other mailer. Use C:/foo/bar/blah Unix forward
-slash notaion.}
+\item{path}{The pathname to the folder where data files wait to be processed. Usually
+placed there git pull. Use C:/foo/bar/blah Unix forward slash notaion.}
 
 \item{report_path}{Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}}
 
@@ -30,15 +30,18 @@ slash notaion.}
 Default is \code{"INFO"}}
 
 \item{start_time}{Time of day to start looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. Default \code{14:00:00 noon}}
+are not expected to arrive. NOT IMPLEMENTED.}
 
 \item{end_time}{Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. Default \code{14:30:00}}
+are not expected to arrive. NOT IMPLEMENTED}
 
-\item{sleep_time}{Seconds between checks for new files. Default 30 * 60 (ie. 30 minutes).}
+\item{sleep_time}{Either number of seconds between checks for new files or a
+character string of form "H:M:S" defining the time to wake each day.
+Default 30 * 60 (ie. 30 minutes).}
 
-\item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then comparing filenames in \code{path} to those already imported into \code{db} (in tblImports)
-only considers the filename and ignores the full pathname.}
+\item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then comparing filenames
+in \code{path} to those already imported into \code{db} (in tblImports)
+  considers the full pathname, otherwise just considers the filename.}
 }
 \value{
 Doesn't normally return, but -1 on error.

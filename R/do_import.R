@@ -18,9 +18,10 @@ pitdb_do_import <- function(db = NULL, files = NULL, report_path = NULL) {
   !is.null(report_path) || stop("pitdb_do_import: no report_path specified.")
 
   # needed to make render() happy
-  Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/pandoc/")
+  Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/quarto/bin/")
+  #Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/pandoc/")
 
-    rmarkdown::render(
+  rmarkdown::render(
     input = system.file("import_template.RMD", package = "pitr"),
     output_dir = report_path,
     output_file = gsub("[- :]", "_", sprintf("Automated_data_import_%s.html", Sys.time())),

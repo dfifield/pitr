@@ -4,7 +4,7 @@
 \alias{pitdb_extract_detections}
 \title{Extract tag reads from PIT tag database.}
 \usage{
-pitdb_extract_detections(pitdb.path = NULL, year = NULL, verbose = FALSE)
+pitdb_extract_detections(pitdb.path = NULL, years = NULL, verbose = FALSE)
 }
 \arguments{
 \item{pitdb.path}{\[character:\sQuote{NULL}]\cr Full path name to the PIT tag

@@ -5,19 +5,19 @@
 #'  and return a handle to the open database object.
 #'@param pathname Full pathname of the Access PIT tag database to be opened.
 #'@details The function will open the Access database specified by
-#'  \code{pathname}. Note that it only works in a 32-bit R session since the
-#'  only 32-bit Access drivers are available.
+#'  \code{pathname}.
 #'@return A channel to the open database object or -1 on error.
 #'@section Author: Dave Fifield
 #'
 pitdb_open <- function(pathname){
+  ### open connection. This should work on both 32-bit R and 64-bit R as long as
+  # user has both 32-bit and 64-bit Access drivers installed. See
+  # https://stackoverflow.com/questions/45064057/reading-data-from-32-bit-access-db-using-64-bit-r
+  # and https://www.microsoft.com/en-US/download/details.aspx?id=13255
 
-  if (Sys.getenv("R_ARCH") != "/i386")
-    stop("You are not running a 32-bit R session. You must run pitdb_open in a 32-bit R session due to limitations in the RODBC Access driver.")
-
-
-  #RODBC::odbcConnectAccess(pathname)
-  RODBC::odbcDriverConnect(paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=", pathname))
+  # RODBC::odbcConnectAccess(pathname)
+  # RODBC::odbcDriverConnect(paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=", pathname))
+  RODBC::odbcConnectAccess2007(pathname, uid="")
 }
 
 #'@export
