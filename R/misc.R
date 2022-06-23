@@ -125,3 +125,26 @@ print_recs <- function(recs, nm, debug = FALSE) {
     cat("\n")
   }
 }
+
+
+# auxilliary function to deal with input fields that can be NA
+do_na <- function(dat) {
+  if(is.na(dat)){
+    "Null"
+  } else {
+    dat
+  }
+}
+
+
+# Return true if a dataframe column doesn't exist or is NA
+not_exist_or_na <- function(dat, colnm) {
+  if (!(colnm %in% colnames(dat)) || is.na(dat[, colnm])) TRUE
+  else FALSE
+}
+
+# return value of a dataframe column or NA if it either doesn't exist or is NA
+val_or_NA <- function(dat, colnm) {
+  if (not_exist_or_na(dat, colnm)) NA
+  else dat[, colnm]
+}

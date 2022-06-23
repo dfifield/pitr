@@ -44,10 +44,10 @@
 #'@details This function reads a text file of records that have been extracted
 #'  from a monitor board and imports them into the database indicated by
 #'  \code{channel}. These files are typically downloaded via direct cable
-#'  connection or via email from a Raspberry Pi base station.
+#'  connection or received from a Raspberry Pi base station.
 #'
 #'  In most cases \code{filename} will contain info from multiple monitor
-#'  boards, e.g., the daily files emailed from a Raspberry Pi base station. In
+#'  boards, e.g., the daily files from a Raspberry Pi base station. In
 #'  this case, it is helpful to know which deployed boards failed to send their
 #'  data that day. If  \code{detect_non_reporters} = \code{TRUE},
 #'  \code{pitdb_load_file} will issue a warning message listing any boards that
@@ -87,9 +87,19 @@
 #'  record) if an attempt is made to import a record that already exists. \item
 #'  issues a warning (and fails to add record) if a tag_read record refers to an
 #'  unknown tag ID. This could be either a legitimate tag that has not been
-#'  added to the database or a so-called \emph{ghost read}. Ghost reads are
-#'  almost entirely eliminated as of rfid board software version 1.1, since only
-#'  tags with known prefixes (compiled in) are recorded. However, it is remotely
+#'  added to the database or a so-called \emph{ghost read}. Ghost reads
+#'  were previously generated b/c the noise data coming from the MLX90109 chip when
+#'  no tag was present was continuously read and interpreted as a potential EM4102
+#'   data stream.
+#'  As of rfid board software version 1.8,
+#'  Ghost reads are (should be?) entirely eliminated, b/c the data stream is only
+#'  treated as valid when the duty cycle is approximately 50% (40%-60% in practice)
+#'  indicating that a tag is present in the antenna.
+#'
+#'  A previous fix as a stop-gap measure, implemented in version 1.1, involved
+#'  only recording tags with specific known prefixes (hardcoded into software)
+#'   of existing tags.
+#'  However, it was still remotely
 #'  possible that a ghost read with a known prefix could occur. The number of
 #'  reads field is always 1 (??) in a ghost read, but rarely so for a true tag
 #'  read. Setting \code{detect_ghost_reads} = \code{TRUE} will issue a warning
@@ -140,7 +150,7 @@ pitdb_load_file <- function(ch = NULL,
                       (is.not.null(.[[1]]) && is.not.null(.[[2]])),
                       err_desc = "from_date and to_date must both either be supplied or NULL" ))
 
-  # Check if file already imorted. Rudimentary check which only considers filename
+  # Check if file already imported. Rudimentary check which only considers filename
   tblImports <- RODBC::sqlFetch(ch, "tblImports", as.is = T) %>% ensure_data_is_returned
 
   # Check if filename in list of imported files with or without full path.

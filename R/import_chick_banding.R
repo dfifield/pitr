@@ -2,7 +2,7 @@
 #' @importFrom magrittr %>%
 #'@title Import chick banding
 #'
-#'@description The function import a single chick banding record to the database.
+#'@description The function imports a single chick banding record to the database.
 #'
 #'@param dt A dataframe containing at least fields: \code{Band, Burrow, Date, TotW, BagW, Tarsus, PIT, Contents}
 #'@param ch Open RODBC channel connecting to the database
@@ -14,7 +14,7 @@
 
 pitdb_insert_chick_banding <- function(dt, ch){
 
- !is.null(ch) || stop("parameter ch is missing.")
+  !is.null(ch) || stop("parameter ch is missing.")
 
   cat(sprintf("Inserting chick banding record for %s in  %s...\n", dt$Band, dt$Burrow))
 
@@ -39,7 +39,8 @@ pitdb_insert_chick_banding <- function(dt, ch){
 
     #### create a tblBirds record ####
     cat("\tCreating tblBirds record...")
-    strsql <- paste0("INSERT INTO tblBirds ( [BandNo], [Species], [Sex], [Colony], [AgeAtBanding]) SELECT ",
+    strsql <- paste0("INSERT INTO tblBirds ( [BandNo], [Species], [Sex], ",
+                    "[Colony], [AgeAtBanding]) SELECT ",
                     "'", dt$Band, "' AS e1, ",
                     1462, " AS e2, ",
                     "'U' AS e3, ",
@@ -150,12 +151,3 @@ pitdb_insert_chick_banding <- function(dt, ch){
   cat("done\nDone\n")
 }
 
-
-# auxilliary function to deal with input fields that can be NA
-do_na <- function(dat) {
-  if(is.na(dat)){
-    "Null"
-  } else {
-    dat
-  }
-}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/parse_bird_report_file.R
 \name{pitdb_parse_bird_report_file}
 \alias{pitdb_parse_bird_report_file}
-\title{Parse data from a Raspberry Pi report file}
+\title{Parse data from a direct download or Raspberry Pi report file}
 \usage{
 pitdb_parse_bird_report_file(
   filename,
@@ -39,12 +39,13 @@ Returns a list with elements \code{tag_reads, statuses, uploads,
 The function will parse a bird report datafile.
 }
 \details{
-This function reads a text file of records that have been extracted
+This function is used by \code{pitdb_load_file} to parse the incoming data.
+ It reads a text file of records that have been extracted
  from a monitor board. These files are typically downloaded via direct cable
- connection or via email from a Raspberry Pi base station.
+ connection or received from a Raspberry Pi base station.
 
  In most cases \code{filename} will contain info from multiple monitor
- boards, e.g., the daily files emailed from a Raspberry Pi base station.
+ boards, e.g., the daily files from a Raspberry Pi base station.
 
  All \code{tagID}'s are converted to lowercase.
  Does not attempt to further split tag_reads into normal reads, webserver

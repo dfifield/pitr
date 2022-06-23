@@ -15,7 +15,7 @@ pitdb_insert_chick_banding(dt, ch)
 Nothing.
 }
 \description{
-The function import a single chick banding record to the database.
+The function imports a single chick banding record to the database.
 }
 \details{
 Creates appropriate entries in tblBirds, tblNestAttempt, tblCapture, tblMorpho, tblTagDeployment, tblBurrowCheck

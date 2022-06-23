@@ -12,5 +12,7 @@ RoxygenNote: 7.1.2
 Imports: RODBC,
     tidyr,
     dplyr,
-    git2r
+    git2r,
+    ensurer,
+    stringr
 Suggests: testthat

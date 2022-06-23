@@ -1,6 +1,6 @@
 #' @importFrom magrittr %>%
 #'@export
-#'@title Parse data from a Raspberry Pi report file
+#'@title Parse data from a direct download or Raspberry Pi report file
 #'
 #'@description The function will parse a bird report datafile.
 #'
@@ -17,12 +17,13 @@
 #'  ignore testing data.
 #'@param verbose If \code{TRUE}, print a message if file contains "no updates"
 #'
-#'@details This function reads a text file of records that have been extracted
+#'@details This function is used by \code{pitdb_load_file} to parse the incoming data.
+#'  It reads a text file of records that have been extracted
 #'  from a monitor board. These files are typically downloaded via direct cable
-#'  connection or via email from a Raspberry Pi base station.
+#'  connection or received from a Raspberry Pi base station.
 #'
 #'  In most cases \code{filename} will contain info from multiple monitor
-#'  boards, e.g., the daily files emailed from a Raspberry Pi base station.
+#'  boards, e.g., the daily files from a Raspberry Pi base station.
 #'
 #'  All \code{tagID}'s are converted to lowercase.
 #'  Does not attempt to further split tag_reads into normal reads, webserver
