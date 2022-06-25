@@ -172,8 +172,8 @@ pitdb_load_file <- function(ch = NULL,
   print(tot_recs)
 
   # Remove data outside specified date range and override limit_to_deploy_dates
-  # if from_date and to_date are given. Note we've already made sure both of from_date and to_date
-  # are supplied if either of them is.
+  # if from_date and to_date are given. Note we've already made sure both of
+  # from_date and to_date are supplied if either of them is.
   if( is.not.null(from_date)) {
     limit_to_deploy_dates = FALSE
 
@@ -198,14 +198,22 @@ pitdb_load_file <- function(ch = NULL,
     cat(sprintf("%d records retained after deployment date filtering:\n",  rem_recs %>% sum))
     print(rem_recs)
 
-    # show what records were rejected
+    # show what records were rejected. Explicitly use base::setdiff()
+    # (previously used dplyr::setdiff) but it complains if one of the
+    # tibbles has zero rows.
     num_filt <- sum(tot_recs - rem_recs)
     if (num_filt > 0) {
       cat(sprintf("\nThe following %d records were filtered out due to deployment date filtering:", num_filt))
-      diffs <- purrr::map2(dat_orig, dat, function(x, y) dplyr::setdiff(x, y))
+      diffs <- purrr::map2(dat_orig, dat, function(x, y) base::setdiff(x, y))
       purrr::walk2(diffs, names(diffs), print_recs)
     }
   }
+
+  # Set any tibbles with zero records left to NULL
+  dat %<>% purrr::map(function(dfr) {
+    if (!is.null(dfr) && nrow(dfr) == 0) NULL
+    else dfr
+  })
 
   # Look up fetch_type
   strsql <- paste0("SELECT lkpFetchType.FetchTypeID, lkpFetchType.FetchTypeText FROM lkpFetchType WHERE ",

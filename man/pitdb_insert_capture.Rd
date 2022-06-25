@@ -7,9 +7,10 @@
 pitdb_insert_capture(dt, ch)
 }
 \arguments{
-\item{dt}{A dataframe containing at least \code{Band, Burrow, Date} and
-optionally \code{Colony, Species, Age, TotW, BagW, Tarsus, PIT_deployed,
-PIT_removed}.}
+\item{dt}{A dataframe containing at least \code{Band, Burrow, DateTime} and
+optionally \code{Colony, Species, Age, TotW, BagW, Tarsus, Wing, BloodCard,
+BloodVial, BloodVialAmount, CloSwab, PharSwab, Feathers, SampleNote,
+Behaviour, PIT_deployed, PIT_removed}.}
 
 \item{ch}{Open RODBC channel connecting to the database}
 }
@@ -23,9 +24,14 @@ The function inserts a single capture record into the database.
 Creates or updates appropriate entries in tblBirds, tblBands, tblTags,
  tblNestAttempt, tblCapture, tblMorpho, and tblTagDeployment.
 
- If this is a recapture of a previously banded bird (ie. it is already in
- \code{tblBirds}), then a new record is not created in \code{tblBirds} and thus
- \code{Age, Sex, Species, and Colony} are ignored.
+ If this bird is not already in \code{tblBirds}, then a new record is
+ created in \code{tblBirds} but this
+ requires fields for \code{AgeAtBanding, Species, and Colony} and optionally
+ \code{Sex} and \code{BirdNote}. If the bird is already in \code{tblBirds} then
+ these fields are ignored.
+
+ If \code{Burrow} does not exist then it is created in \code{tblBurrow} which
+ requires field \code{Plot} and optionally \code{Habitat} and \code{BurrowNotes}.
 
  If \code{Species} or \code{Colony} are missing, they default to "Gull Island"
  and "Leach's Storm-Petrel" respectively. See tables \code{tblSpeciesInfo} and
@@ -39,6 +45,10 @@ Creates or updates appropriate entries in tblBirds, tblBands, tblTags,
  If \code{PIT_removed} is supplied then it should exist in
  \code{tblTagDeployment}, otherwise a warning is displayed and no removal
  is recorded.
+
+ \code{Behaviour} refers to behaviour when arm is inserted into burrow and includes
+ things like "run to back", "bite once", "bite multiple times", "vocalize",
+ "calm/docile/neutral"
 }
 \section{Author}{
  Dave Fifield

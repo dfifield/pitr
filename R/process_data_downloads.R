@@ -84,9 +84,11 @@ pitdb_process_data_downloads <- function(db = NULL,
 
   # get initial snapshot of existing files in download folder and keep only ".txt" files
   files <- fileSnapshot(path, full.names = TRUE)
+
+  # remove any that have already been imported into the db
   new_files <- filter_unwanted(rownames(files$info), db, compare_full_pathname)
   if(!is.character(new_files)) {
-    logging::loginfo("Shutting down import server.")
+    logging::loginfo("No new files to process...Shutting down import server.")
     return(-1)
   }
 
@@ -161,6 +163,8 @@ pitdb_process_data_downloads <- function(db = NULL,
  }
 }
 
+
+# Remove any files that have already been imported to db.
 filter_unwanted <- function(files, db, compare_full_pathname){
   files <- files[substr(files,nchar(files)-3, nchar(files)) == ".txt"]
 
