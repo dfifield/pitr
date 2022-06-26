@@ -53,7 +53,7 @@ pitdb_insert_capture <- function(dt, ch){
             sprintf("At least one of Band (%s), Burrow (%s), or DateTime (%s) is NA",
                     as.character(dt$Band), as.character(dt$Burrow),
                     as.character(dt$DateTime)),
-            "\nNot entering this record!")
+            "\nNot entering this record!\n")
     return()
   }
 

@@ -14,7 +14,7 @@ Plot, Habitat, BurrowNotes} - see below for details.}
 \item{ch}{Open RODBC channel connecting to the database}
 }
 \value{
-Nothing.
+\code{TRUE} on success, else \code{FALSE}.
 }
 \description{
 The function inserts a single board deployment record into the
@@ -34,6 +34,9 @@ Creates appropriate entries in tblBoardDeployment, tblBoard,
  if \code{Burrow} does not exist in \code{tblBurrow} it will be added but
  this requires fields for \code{Plot} and \code{Habitat} and optionally
  \code{BurrowNotes}. See table \code{lkpHabitat} for habitat details.
+
+ Fails if this deployment would conflict with an existing deployment of this
+ board.
 }
 \section{Author}{
  Dave Fifield

@@ -43,7 +43,7 @@ pitdb_insert_burrow_check <- function(dt, ch){
             sprintf("At least one of Burrow (%s), Status (%s), or DateTime (%s) is NA",
                     as.character(dt$Burrow), as.character(dt$Status),
                     as.character(dt$DateTime)),
-            "\nNot entering this record!")
+            "\nNot entering this record!\n")
     return()
   }
 
