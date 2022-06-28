@@ -37,6 +37,11 @@ pitdb_insert_board_deployment <- function(dt, ch){
 
   !is.null(ch) || stop("parameter ch is missing.")
 
+  message(sprintf("Attempting to insert board deployment record for %s in %s from %s...\n",
+                as.character(dt$BoardID), as.character(dt$Burrow),
+                as.character(dt$FromDate)))
+
+
   if (with(dt, any(is.na(BoardID), is.na(Burrow), is.na(FromDate)))) {
     message("ERROR: pitdb_insert_board_deployment: ",
             sprintf("At least one of BoardID (%s), Burrow (%s), or FromDate (%s) is NA",
@@ -45,10 +50,6 @@ pitdb_insert_board_deployment <- function(dt, ch){
             "\nNot entering this record!\n")
     return()
   }
-
-  message(sprintf("Inserting board deployment record for %s in %s from %s...\n",
-                  as.character(dt$BoardID), as.character(dt$Burrow),
-                  as.character(dt$FromDate)))
 
   # First check to see if this deployment would overlap with any other existing
   # deployment for this board.

@@ -392,3 +392,11 @@ try_insert <- function(ch, strsql) {
   } else
     TRUE
 }
+
+# Set any tibbles in list dat with zero records left to NULL
+make_empty_tibbles_null <- function(dat) {
+  dat %>% purrr::map(function(dfr) {
+    if (!is.null(dfr) && nrow(dfr) == 0) NULL
+    else dfr
+  })
+}

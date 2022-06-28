@@ -181,8 +181,12 @@ pitdb_load_file <- function(ch = NULL,
     dat <- dat %>%
       purrr::map_if(.p = is.not.null, .f = function(dt) {dplyr::filter(dt, as.Date(dt$dateTime) >= from_date, as.Date(dt$dateTime) <= to_date)})
 
-    cat(sprintf("%d records retained after date filtering.\n",  purrr::map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
+    cat(sprintf("%d records retained after date filtering.\n",
+                purrr::map_if(dat, is.not.null, nrow) %>% unlist %>% sum))
   }
+
+  # Nullify any table that has no records left
+  dat %<>% make_empty_tibbles_null
 
   # Filter out data outside deployment dates.
   if (limit_to_deploy_dates) {
@@ -193,27 +197,22 @@ pitdb_load_file <- function(ch = NULL,
     # filter each of tag_reads, statuses, etc in turn.
     dat <- dat %>% purrr::map_if(is.not.null, per_dataclass_filter, depl)
 
+    # Nullify any table that has no records left
+    dat %<>% make_empty_tibbles_null
+
     # get remaining numbers of records
     rem_recs <- purrr::map_if(dat, is.not.null, nrow) %>% unlist
     cat(sprintf("%d records retained after deployment date filtering:\n",  rem_recs %>% sum))
     print(rem_recs)
 
-    # show what records were rejected. Explicitly use base::setdiff()
-    # (previously used dplyr::setdiff) but it complains if one of the
-    # tibbles has zero rows.
+    # show what records were rejected.
     num_filt <- sum(tot_recs - rem_recs)
     if (num_filt > 0) {
       cat(sprintf("\nThe following %d records were filtered out due to deployment date filtering:", num_filt))
-      diffs <- purrr::map2(dat_orig, dat, function(x, y) base::setdiff(x, y))
+      diffs <- purrr::map2(dat_orig, dat, function(x, y) dplyr::setdiff(x, y))
       purrr::walk2(diffs, names(diffs), print_recs)
     }
   }
-
-  # Set any tibbles with zero records left to NULL
-  dat %<>% purrr::map(function(dfr) {
-    if (!is.null(dfr) && nrow(dfr) == 0) NULL
-    else dfr
-  })
 
   # Look up fetch_type
   strsql <- paste0("SELECT lkpFetchType.FetchTypeID, lkpFetchType.FetchTypeText FROM lkpFetchType WHERE ",

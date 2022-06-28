@@ -3,12 +3,13 @@ library(pitr)
 library(RODBC)
 library(magrittr)
 
-data_sets <- "C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/2017/Downloads"
+# data_sets <- "C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/2017/Downloads"
+data_sets <- "C:/Local files/Burrow_logger/Data/2022/Plot4"
 
-files = c("gipi1_report_2017_08_28_13_00_03.txt")
+files = c("gipi4_report_2022_06_23_06_10_17.txt")
 files = file.path(data_sets, files)
 
-mych <- pitdb_open("C:/Users/fifieldd/Documents/Offline/Projects/Burrow_Logger/Data/Burrow logger master0.1.accdb")
+mych <- pitdb_open("C:/Local files/Burrow_logger/Data/Burrow logger master_test0.1.accdb")
 
 files %>%
   walk(function(.x, ch = mych) {pitdb_load_file(ch = mych, filename = .x,
