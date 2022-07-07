@@ -41,7 +41,9 @@ if (length(files) == 0) {
   if (mych == -1) {
     print("Failed to open database.")
   } else {  
-    files %>% purrr::walk(function(.x, ch = mych) {pitdb_load_file(ch = ch, filename = .x, parse_summary = TRUE, ignore_insert_errors = TRUE)})
+    files %>% purrr::walk(function(.x, ch = mych) {
+      pitdb_load_file(ch = ch, filename = .x, parse_summary = TRUE, 
+                      ignore_insert_errors = TRUE)})
     pitdb_close(mych)
   }
 }

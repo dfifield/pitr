@@ -12,7 +12,7 @@ pitdb_load_file(
   from_date = NULL,
   to_date = NULL,
   limit_to_deploy_dates = TRUE,
-  limit_to_known_prefix = TRUE,
+  limit_to_known_prefix = FALSE,
   ignore_test_board = TRUE,
   test_board_ID = 1,
   record_non_reporters = TRUE,
@@ -46,8 +46,10 @@ deployed on this date and find boards not reporting any data. See \code{display_
 \item{limit_to_deploy_dates}{(default = \code{TRUE}). Only data within the range of dates that the board was deployed will
 be imported. This is usefule to exclude data recorded before or after deployment (e.g. at the office).}
 
-\item{limit_to_known_prefix}{If \code{TRUE} (the default) only tag IDs with a known prefix (see \code{lkpSpecialTags} in the database)
-will be inserted into the database. This is useful to ignore ghost tag reads.}
+\item{limit_to_known_prefix}{(defualt \code{FALSE}) If \code{TRUE} only tag IDs with a known prefix (see \code{lkpSpecialTags} in the database)
+will be inserted into the database. This is useful to ignore ghost tag reads.
+This is likely no longer needed since implementing duty cycle filtering of
+the clock signal from MLX90109 chip.}
 
 \item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
 
