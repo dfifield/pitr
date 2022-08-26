@@ -38,12 +38,14 @@ handle_non_reporters <- function(ch, import_ID, record_non_reporters, display_no
       if(display_non_reporters){
         dplyr::filter(all_plot_brds, BoardID %in% non_report) %>%
           dplyr::mutate(brd_bur = paste0(.$BoardID, " (", .$BurrowID, ")")) %>%
-          `[[`("brd_bur") %>% # there's gotta be a better way
+          `[[`("brd_bur") %>% # there's gotta be a better way. Yes, use magrittr::extract2
           paste0(collapse = ", ") %>%
           warn_non_reporting
       }
 
-      # Insert a record into tblNonReport
+      # Insert a record into tblNonReport.
+      # XXX could modify insert_table_data() to do the insert? That would allow
+      # to give an account of inserted vs rejected rows.
       cat("\tInserting non-reporting board records...")
       non_report %>%
         purrr::walk(function(brd) {
