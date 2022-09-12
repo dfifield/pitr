@@ -18,9 +18,9 @@
 #'   are not expected to arrive. NOT IMPLEMENTED.
 #'@param end_time Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
 #'   are not expected to arrive. NOT IMPLEMENTED
-#'@param sleep_time Either number of seconds between checks for new files or a
+#'@param sleep_time If \code{NULL} (default), return after importing any new files.
+#'   Otherwise, either number of seconds between checks for new files or a
 #'   character string of form "H:M:S" defining the time to wake each day.
-#'   Default 30 * 60 (ie. 30 minutes).
 
 #'@details
 #'
@@ -35,7 +35,7 @@ pitdb_process_data_downloads <- function(db = NULL,
                                          compare_full_pathname = FALSE,
                                          start_time = NULL,
                                          end_time = NULL,
-                                         sleep_time = 30 * 60 ){
+                                         sleep_time = NULL){
 
 
   logging::basicConfig(level = log_level)
@@ -85,9 +85,9 @@ pitdb_process_data_downloads <- function(db = NULL,
   # get initial snapshot of existing files in download folder and keep only ".txt" files
   files <- fileSnapshot(path, full.names = TRUE)
 
-  # remove any that have already been imported into the db
+  # remove any that have already been imported into the db.
   new_files <- filter_unwanted(rownames(files$info), db, compare_full_pathname)
-  if(!is.character(new_files)) {
+  if(!is.character(new_files) || length(new_files) == 0) {
     logging::loginfo("No new files to process...Shutting down import server.")
     return(-1)
   }
@@ -105,6 +105,12 @@ pitdb_process_data_downloads <- function(db = NULL,
       # pitdb_do_import wants full pathnames.
 
       pitdb_do_import(db = db, files = new_files, report_path = report_path)
+    }
+
+    # Go around again or just a one-time import?
+    if (is.null(sleep_time)) {
+      logging::loginfo("No sleep_time set...Shutting down import server.")
+      return(-1)
     }
 
     # Calculate sleep time

@@ -35,9 +35,9 @@ are not expected to arrive. NOT IMPLEMENTED.}
 \item{end_time}{Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
 are not expected to arrive. NOT IMPLEMENTED}
 
-\item{sleep_time}{Either number of seconds between checks for new files or a
-character string of form "H:M:S" defining the time to wake each day.
-Default 30 * 60 (ie. 30 minutes).}
+\item{sleep_time}{If \code{NULL} (default), return after importing any new files.
+Otherwise, either number of seconds between checks for new files or a
+character string of form "H:M:S" defining the time to wake each day.}
 
 \item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then comparing filenames
 in \code{path} to those already imported into \code{db} (in tblImports)
