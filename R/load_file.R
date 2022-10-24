@@ -320,9 +320,11 @@ pitdb_load_file <- function(ch = NULL,
 
     cat("\tInserting statuses...")
   if(!is.null(dat$statuses)){
-    insert_results <- dat$statuses %>% insert_table_data(ch = ch, whch_table = "tblStatus", import_ID = import_ID,
-                       ignore_errors = ignore_insert_errors, verbose = verbose)
-    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results), sum(insert_results == FALSE)))
+    insert_results <- dat$statuses %>%
+      insert_table_data(ch = ch, whch_table = "tblStatus", import_ID = import_ID,
+          ignore_errors = ignore_insert_errors, verbose = verbose)
+    cat(sprintf("%d inserted/%d rejected\n", sum(insert_results),
+                sum(insert_results == FALSE)))
     if (verbose) print_tibble(dat$statuses[insert_results,])
   } else {
     cat("no status data to insert\n")

@@ -10,8 +10,9 @@
 # verbose - Passed on to do_insert
 #
 #
-insert_table_data <- function(dat = NULL, ch = NULL, whch_table = NULL, import_ID = NULL, read_type = NULL, ignore_errors = FALSE,
-                             verbose = FALSE) {
+insert_table_data <- function(dat = NULL, ch = NULL, whch_table = NULL,
+                              import_ID = NULL, read_type = NULL,
+                              ignore_errors = FALSE, verbose = FALSE) {
 
   ensurer::ensure_that(dat, is.data.frame(.))
   ensurer::ensure_that(whch_table, is.character(.))
