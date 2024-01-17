@@ -63,7 +63,7 @@ pitdb_extract_captures <- function(pitdb.path = NULL,
 
   query = paste0("SELECT tblBirds.BandNo, tblBurrow.Plot, tblCapture.BurrowID, ",
                  "tblCapture.Date AS [DateTime], tblTagDeployment.TagID, ",
-                 "Year([DateTime]) AS [year] ",
+                 "Year([DateTime]) AS [year], tblBirds.AgeAtBanding",
                  "FROM tblBirds INNER JOIN ((tblBurrow INNER JOIN tblCapture ",
                  "ON tblBurrow.BurrowID = tblCapture.BurrowID) ",
                  "INNER JOIN tblTagDeployment ",
