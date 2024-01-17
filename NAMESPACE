@@ -2,6 +2,7 @@
 
 export(pitdb_close)
 export(pitdb_do_import)
+export(pitdb_extract_captures)
 export(pitdb_extract_detections)
 export(pitdb_impute_nest_attempt)
 export(pitdb_insert_board_deployment)

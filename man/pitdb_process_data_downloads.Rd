@@ -13,7 +13,7 @@ pitdb_process_data_downloads(
   compare_full_pathname = FALSE,
   start_time = NULL,
   end_time = NULL,
-  sleep_time = 30 * 60
+  sleep_time = NULL
 )
 }
 \arguments{
@@ -48,9 +48,6 @@ Doesn't normally return, but -1 on error.
 }
 \description{
 The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
-}
-\details{
-
 }
 \section{Author}{
  Dave Fifield
