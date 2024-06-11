@@ -47,7 +47,8 @@ print_tibble <- function(tb){
   nrow(tb) == 0 && return()
 
   cat("\n")
-  print(tb, n = nrow(tb), width = Inf)
+  as.tibble(tb) %>%
+    print(n = nrow(tb), width = Inf)
   cat("\n")
 }
 

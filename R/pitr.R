@@ -13,9 +13,7 @@
 #'  deal with different data formats in 2016 and 2017
 #'
 #' @section Author: Dave Fifield
-#' @docType package
-#' @name pitr
-NULL
+"_PACKAGE"
 
 # Print message when user executes "library(pitr). Shamelessly borrowed from mgcv.
 .onAttach <- function(...) {

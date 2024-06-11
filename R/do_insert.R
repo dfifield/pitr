@@ -1,6 +1,7 @@
 
-# Try to insert a single record. Returns T if success, F otherwise.
-# If verbose == TRUE and ignore_errors == TRUE, print a warning message when insertion fails.
+# Try to insert a single record. Returns T if success, F otherwise. If verbose
+# == TRUE and ignore_errors == TRUE, print a warning message when insertion
+# fails.
 do_insert <- function(dt, ch, strsql, ignore_errors, whch_table, import_ID, read_type, verbose) {
 
 

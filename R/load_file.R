@@ -4,7 +4,7 @@
 #'
 #'@description The function will load a datafile downloaded from a PIT tag
 #'  monitor board into a Microsoft Access database.
-#'@param ch Channel to open database returned from \code{pitdb.open}.
+#'@param ch Channel to open database returned from \code{pitdb_open}.
 #'@param filename Path to file containing data dumped from a monitor board.
 #'@param date_ Date on which the data was downloaded. Normally this is parsed
 #'  from the \code{filename} but it can be over-ridden with this argument.Used to find all boards
@@ -24,6 +24,7 @@
 #'#'@param ignore_test_board Should data from the test board (normally #1) be ignored. Default = \code{TRUE}.
 #'@param test_board_ID The board ID of the test board (normally 1). Used to ignore testing data.
 #'@param record_non_reporters (default \code{TRUE}) Should boards not reporting data in file be recorded in database?
+#'  Useful to get a list of boards not reporting in via WIFI each day.
 #'  Only makes sense when \code{fetch_type} is "WiFi" and gives an error if this is not the case.
 #'  Non-reporting boards will be added to tbl_NonReport.
 #'@param display_non_reporters Produce warning message for any deployed boards
@@ -235,7 +236,7 @@ pitdb_load_file <- function(ch = NULL,
 
   # Check if any data left to process
   if(dat %>% purrr::map(is.null) %>% purrr::flatten_lgl() %>% all){
-    cat("No data to load. Qutting...\n")
+    cat("No data to load. Quiting...\n")
     return(TRUE)
   }
 
@@ -356,4 +357,29 @@ pitdb_load_file <- function(ch = NULL,
 
   cat("Done.\n")
   TRUE
+}
+
+
+#'@export
+#'@title Load multiple PIT tag datafiles into a database.
+#'
+#'@description Repeatedly calls \link{pitdb_load_file} to load multiple files
+#'  into a Microsoft Access database.
+#'@param ch (required) Channel to open database returned from \link{pitdb_open}.
+#'@param filenames (required) Character vector of full pathnames to files
+#'  containing data from a monitor board.
+#'@param ... Other args passed to \link{pitdb_load_file}
+#'
+#'@details This calls \link{pitdb_load_file} once for each element of \code{filenames}
+#'  in order to read a text file of records that have been extracted
+#'  from a monitor board and import them into the database indicated by
+#'  \code{channel}. These files are typically downloaded via direct cable
+#'  connection or received from a Raspberry Pi base station.
+#'
+#'@return Nothing
+#'@section Author: Dave Fifield
+#'
+pitdb_load_files <- function(ch, filenames, ...){
+  filenames %>%
+    purrr::walk(function(.x) {pitdb_load_file(ch = ch, filename = .x, ...)})
 }

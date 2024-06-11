@@ -20,7 +20,7 @@ pitdb_process_data_downloads(
 \item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}
 
 \item{path}{The pathname to the folder where data files wait to be processed. Usually
-placed there git pull. Use C:/foo/bar/blah Unix forward slash notaion.}
+placed there by git pull. Use C:/foo/bar/blah Unix forward slash notaion.}
 
 \item{report_path}{Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}}
 
@@ -48,6 +48,9 @@ Doesn't normally return, but -1 on error.
 }
 \description{
 The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
+}
+\details{
+none as of yet
 }
 \section{Author}{
  Dave Fifield

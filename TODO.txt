@@ -1,0 +1,4 @@
+June 11, 2024
+- DONE fix print_tibble() being handed a dataframe and thus when calling print() print.data.frame(... n = nrow(tb)) is called instead
+  of print.tibble(). This causes the "n = nrow(tb)" arg to be interpreted as "na.print = nrow(tb)". Solution is to make sure
+  my print_tibble() gets called with a tibble and that it checks and casts it to a tibble within the function.

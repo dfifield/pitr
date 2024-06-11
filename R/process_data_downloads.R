@@ -6,7 +6,7 @@
 
 #'@param db The pathname to the Microsoft Access database to insert downloaded files into.
 #'@param path The pathname to the folder where data files wait to be processed. Usually
-#'   placed there git pull. Use C:/foo/bar/blah Unix forward slash notaion.
+#'   placed there by git pull. Use C:/foo/bar/blah Unix forward slash notaion.
 #'@param report_path Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}
 #'@param logfile_path Full pathname of file to receive logging information. Defaults to \code{dirname(db)/import_log.txt}.
 #'@param log_level One of \code{logging::loglevels}. E.g. \code{ c("NOTSET", "FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL", "FATAL") }
@@ -22,7 +22,7 @@
 #'   Otherwise, either number of seconds between checks for new files or a
 #'   character string of form "H:M:S" defining the time to wake each day.
 
-#'@details
+#'@details none as of yet
 #'
 #'@return Doesn't normally return, but -1 on error.
 #'@section Author: Dave Fifield

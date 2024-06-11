@@ -25,7 +25,7 @@ pitdb_load_file(
 )
 }
 \arguments{
-\item{ch}{Channel to open database returned from \code{pitdb.open}.}
+\item{ch}{Channel to open database returned from \code{pitdb_open}.}
 
 \item{filename}{Path to file containing data dumped from a monitor board.}
 
@@ -54,6 +54,7 @@ the clock signal from MLX90109 chip.}
 \item{test_board_ID}{The board ID of the test board (normally 1). Used to ignore testing data.}
 
 \item{record_non_reporters}{(default \code{TRUE}) Should boards not reporting data in file be recorded in database?
+Useful to get a list of boards not reporting in via WIFI each day.
 Only makes sense when \code{fetch_type} is "WiFi" and gives an error if this is not the case.
 Non-reporting boards will be added to tbl_NonReport.}
 
