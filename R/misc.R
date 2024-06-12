@@ -47,7 +47,7 @@ print_tibble <- function(tb){
   nrow(tb) == 0 && return()
 
   cat("\n")
-  as.tibble(tb) %>%
+  dplyr::as_tibble(tb) %>%
     print(n = nrow(tb), width = Inf)
   cat("\n")
 }
@@ -89,7 +89,8 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
     print("mydepl =")
     print(mydepl)
     print("Candidate rows to keep:")
-    print(brd_df, n = nrow(brd_df))
+    dplyr::as_tibble(brd_df) %>%
+      print(n = nrow(brd_df))
   }
   # for each deployment, filter on dates
   filt <- mydepl %>%
@@ -104,7 +105,8 @@ per_board_filter <- function(brd_df, mydepl, debug = FALSE){
 
   if (debug) {
     print("returning:")
-    print(filt, n = nrow(filt))
+    dplyr::as_tibble(filt) %>%
+      print(n = nrow(filt))
   }
 
   filt

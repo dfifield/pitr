@@ -52,7 +52,9 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
     print(table(one_reads$tagID))
     if (verbose) {
       cat("Tag read records:")
-      dat$tag_reads %>% print(n = nrow(.))
+      dat$tag_reads %>%
+        dplyr::as_tibble() %>%
+        print(n = nrow(.))
     }
 
     ######## Categorize tag reads #####
@@ -136,7 +138,9 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
             paste0(range(ukn$dateTime), collapse = " to "), "\n"))
 
         if (verbose) {
-          ukn %>% print(n = nrow(.))
+          ukn %>%
+            dplyr::as_tibble() %>%
+            print(n = nrow(.))
           cat("Rows where num_read == 1 may be ghost reads.")
         }
       } else {
@@ -155,7 +159,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
     cat(paste0("\n\n", nrow(dat$statuses), " status entries from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning dates ",
         paste0(range(dat$statuses$dateTime), collapse = " to "), "\n"))
-    if (verbose) dat$statuses %>% print(n = nrow(.))
+    if (verbose) dat$statuses %>% dplyr::as_tibble() %>% print(n = nrow(.))
   } else cat("\nNo status records.")
 
 
@@ -166,7 +170,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
     cat(paste0("\n", nrow(dat$uploads), " upload entries from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning dates ",
         paste0(range(dat$uploads$dateTime), collapse = " to "), "\n"))
-    if (verbose) dat$uploads %>% print(n = nrow(.))
+    if (verbose) dat$uploads %>% dplyr::as_tibble() %>% print(n = nrow(.))
   } else cat("\nNo uploads")
 
   #### Bad records #####
@@ -176,7 +180,7 @@ pitdb_summarize_parsed_file <- function(dat, ch = NULL, verbose = FALSE){
     cat(paste0("\n", nrow(dat$bad_recs), " bad records from ", length(boards), " boards (",
         paste0(boards, collapse = ", "), ")\n\tspanning fetch dates ",
         paste0(range(dat$bad_recs$fetchDateTime), collapse = " to "), "\n"))
-    if (verbose) dat$bad_recs %>% print(n = nrow(.))
+    if (verbose) dat$bad_recs %>% dplyr::as_tibble() %>% print(n = nrow(.))
   } else cat("\nNo bad records\n")
 
   invisible(dat)
