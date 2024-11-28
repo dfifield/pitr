@@ -1,7 +1,7 @@
 Package: pitr
 Type: Package
 Title: Interact with PIT tag logger database
-Version: 0.1.0.9005
+Version: 0.1.0.9006
 Author: Dave Fifield
 Maintainer: Dave Fifield <dave.fifield@canada.ca>
 Description: This package contains methods to allow importing and extracting data to/from a PIT tag burrow monitor database.
