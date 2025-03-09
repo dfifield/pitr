@@ -17,7 +17,13 @@ pitdb_open <- function(pathname){
 
   # RODBC::odbcConnectAccess(pathname)
   # RODBC::odbcDriverConnect(paste0("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=", pathname))
-  RODBC::odbcConnectAccess2007(pathname, uid="")
+
+  # Handle windows shortcuts
+  if (tools::file_ext(pathname) == "lnk") {
+    # Windows shortcut - follow to get real path
+
+  } else
+    RODBC::odbcConnectAccess2007(pathname, uid="")
 }
 
 #'@export
