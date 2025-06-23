@@ -31,13 +31,24 @@ pitr_pull_from_repo <- function(repos, pub, priv, passphrase) {
   }, cred = cred)
 }
 
-# Setup credentials for GitHub API
-setup_git_creds <- function() {
-  username <- "gull-island"
+#'@export
+#'@title Setup credentials for connecting with GitHub PIT tag data repos
+#'
+#'@description This function looks up the GITHUB_PAT environment variable and
+#'  combines it with \code{username} to create and return credentials suitable
+#'  for passing to \code{git2r::pull()}, etc.
+#'@param username Character string containing the github username. (Default:
+#'  "gull-island").
+#'
+#'@details Since this function uses GitHub Personal Access Tokens, the returned
+#'  credentials will only work with repos cloned with HTTPS.
+#'@return credentials created by \code{git2r::cred_user_pass}
+#'@section Author: Dave Fifield
+#'
+pitr_setup_git_creds <- function(username = "gull-island") {
   pat <- Sys.getenv("GITHUB_PAT")
   git2r::cred_user_pass(username = username, password = pat)
 }
-
 
 
 #' @importFrom magrittr %>%
@@ -64,7 +75,7 @@ pitr_setup_plot_repos <- function(base_folder,
                              force_delete = FALSE) {
 
   # Setup credentials
-  cred <- setup_git_creds()
+  cred <- pitr_setup_git_creds()
 
   # Create year folder if needed
   if (!dir.exists(file.path(base_folder, year))) {
