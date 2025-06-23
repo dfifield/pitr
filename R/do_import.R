@@ -18,7 +18,8 @@ pitdb_do_import <- function(db = NULL, files = NULL, report_path = NULL) {
   !is.null(report_path) || stop("pitdb_do_import: no report_path specified.")
 
   # needed to make render() happy
-  Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/quarto/bin/")
+  # I no longer do this here - rather it is set in ~/.Renviron
+  # Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/quarto/bin/")
   #Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/bin/pandoc/")
 
   rmarkdown::render(
