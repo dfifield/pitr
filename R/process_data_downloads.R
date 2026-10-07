@@ -2,25 +2,41 @@
 #'@export
 #'@title Process downloaded PIT tag data
 #'
-#'@description The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
+#'@description The function pulls data from a GitHub repo(s) whose local folder(s) is
+#'  specified in \code{path} and imports them into the database specified by
+#'  \code{db}.
 
-#'@param db The pathname to the Microsoft Access database to insert downloaded files into.
-#'@param path The pathname to the folder where data files wait to be processed. Usually
-#'   placed there by git pull. Use C:/foo/bar/blah Unix forward slash notaion.
-#'@param report_path Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}
-#'@param logfile_path Full pathname of file to receive logging information. Defaults to \code{dirname(db)/import_log.txt}.
-#'@param log_level One of \code{logging::loglevels}. E.g. \code{ c("NOTSET", "FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL", "FATAL") }
-#'   Default is \code{"INFO"}
-#'@param compare_full_pathanme (Default \code{FALSE}). If \code{TRUE} then comparing filenames
-#'in \code{path} to those already imported into \code{db} (in tblImports)
-#'   considers the full pathname, otherwise just considers the filename.
-#'@param start_time Time of day to start looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-#'   are not expected to arrive. NOT IMPLEMENTED.
-#'@param end_time Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-#'   are not expected to arrive. NOT IMPLEMENTED
-#'@param sleep_time If \code{NULL} (default), return after importing any new files.
-#'   Otherwise, either number of seconds between checks for new files or a
-#'   character string of form "H:M:S" defining the time to wake each day.
+#'@param db The pathname to the Microsoft Access database to insert downloaded
+#'  files into.
+#'@param path (character vector) The pathnames to the local Git repo folders to
+#'  pull data to and then load into the database specified by \code{db}.   Use
+#'  C:/foo/bar/blah Unix forward slash notaion.
+#'@param username Optional character string containing the github username to
+#'  use when connecting to GitHub. (Default: NULL). See
+#'  \code{\link{setup_git_creds}} for default value when \code{NULL}.
+#'@param pat Character string containing the GitHub Personal Access Token (PAT).
+#'  See \code{\link{setup_git_creds}} for default if \code{NULL}, and caveat when
+#'  called from Windows Task Scheduler as the "SYSTEM" user.
+#'@param report_path Full pathname to folder where knitted import reports are to
+#'  be stored. Defaults to \code{path/../Import records}
+#'@param logfile_path Full pathname of file to receive logging information.
+#'  Defaults to \code{dirname(db)/import_log.txt}.
+#'@param log_level One of \code{logging::loglevels}. E.g. \code{ c("NOTSET",
+#'  "FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL",
+#'  "FATAL") } Default is \code{"INFO"}
+#'@param compare_full_pathanme (Default \code{FALSE}). If \code{TRUE} then
+#'  comparing filenames in \code{path} to those already imported into \code{db}
+#'  (in tblImports) considers the full pathname, otherwise just considers the
+#'  filename.
+#'@param start_time Time of day to start looking for new files. Useful to avoid
+#'  wasting time looking for new files during parts of the day when they are not
+#'  expected to arrive. NOT IMPLEMENTED.
+#'@param end_time Time of day to stop looking for new files. Useful to avoid
+#'  wasting time looking for new files during parts of the day when they are not
+#'  expected to arrive. NOT IMPLEMENTED
+#'@param sleep_time If \code{NULL} (default), return after importing any new
+#'  files. Otherwise, either number of seconds between checks for new files or a
+#'  character string of form "H:M:S" defining the time to wake each day.
 
 #'@details none as of yet
 #'
@@ -29,6 +45,8 @@
 #'
 pitdb_process_data_downloads <- function(db = NULL,
                                          path = NULL,
+                                         username = NULL,
+                                         pat = NULL,
                                          report_path = NULL,
                                          logfile_path = NULL,
                                          log_level = "INFO",
@@ -37,7 +55,7 @@ pitdb_process_data_downloads <- function(db = NULL,
                                          end_time = NULL,
                                          sleep_time = NULL){
 
-
+  # setup logging
   logging::basicConfig(level = log_level)
   if (!is.null(logfile_path)){
     logging::addHandler(logging::writeToFile, file = logfile_path, level = log_level)
@@ -82,13 +100,33 @@ pitdb_process_data_downloads <- function(db = NULL,
     return(-1)
   }
 
+
+  # Pull new files from Github
+  logging::logdebug(sprintf("Calling setup_git_creds, username = %s, pat = %s",
+                            username, pat))
+  cred <- setup_git_creds(username, pat)
+
+  logging::logdebug("Pulling from repos...")
+  # Pull new data from repos if any. Note paths is a vector of repo folder
+  # locations.
+  pull_from_repo(repos = path,  cred = cred)
+
+  logging::logdebug("Getting fileSnapshot...")
   # get initial snapshot of existing files in download folder and keep only ".txt" files
   files <- fileSnapshot(path, full.names = TRUE)
 
   # remove any that have already been imported into the db.
   new_files <- filter_unwanted(rownames(files$info), db, compare_full_pathname)
-  if(!is.character(new_files) || length(new_files) == 0) {
-    logging::loginfo("No new files to process...Shutting down import server.")
+  # Removed because it would short-circuit the import server if there were no
+  # new files when it was first run even if we intended it to continually check.
+  # if(!is.character(new_files) || length(new_files) == 0) {
+  #   logging::loginfo("No new files to process...Shutting down import server.")
+  #   return(-1)
+  # }
+
+  # Could we connect to db
+  if(!is.character(new_files)) {
+    logging::logerror("Initial filter_unwanted() failed to connect to database. Shutting down import server.")
     return(-1)
   }
 
@@ -97,13 +135,13 @@ pitdb_process_data_downloads <- function(db = NULL,
   # Init
   sleep_time_secs <- NA
 
-  # Process new_files (if any), sleep, check for new files, process new files, ad nauseum...
+  # Process new_files (if any), sleep, check for new files, process new files,
+  # ad nauseum...but doesn't get this far if there were no new files when run???
   while(TRUE) {
     if (is.character(new_files) && length(new_files) != 0) {
       logging::loginfo("Processing new files: %s", paste(new_files,
                                                          collapse = ", "))
       # pitdb_do_import wants full pathnames.
-
       pitdb_do_import(db = db, files = new_files, report_path = report_path)
     }
 
@@ -115,13 +153,17 @@ pitdb_process_data_downloads <- function(db = NULL,
 
     # Calculate sleep time
     if (is.character(sleep_time)) {
-      # In this case sleep_time is of the form "H:M:S" to wake up each day.
-      # Need to check and see how long until that time. If difference is negative, then
-      # wake tomorrow at that time.
+      # In this case sleep_time is of the form "H:M:S" to wake up each day. Need
+      # to check and see how long until that time. If difference is negative,
+      # then wake tomorrow at that time.
       n <- now()
-      normal_wake_time <- as.POSIXct(sprintf("%d:%d:%d", lubridate::year(n),lubridate::month(n),
-                                             lubridate::day(n)),
-                                     format = "%Y:%m:%d") + lubridate::hms(sleep_time)
+      normal_wake_time <- as.POSIXct(sprintf(
+          "%d:%d:%d",
+          lubridate::year(n),
+          lubridate::month(n),
+          lubridate::day(n)
+        ),
+        format = "%Y:%m:%d") + lubridate::hms(sleep_time)
       dff <- as.integer(difftime(normal_wake_time, n, units = "secs"))
 
       if (dff > 0) {
@@ -151,8 +193,11 @@ pitdb_process_data_downloads <- function(db = NULL,
     sleep_time_secs <- NA # reset
     logging::logdebug("Yawn... waking up at %s", lubridate::now())
 
+    # Pull new files from Github
+    pull_from_repo(repos = path,  cred = cred)
+
     # Get a new snapshot and compare.
-    # Can't just used changedFiles() b/c import records may have been removed
+    # Can't just use changedFiles() b/c import records may have been removed
     # in the db and so we need to re-import those files.
     files <- fileSnapshot(path)
     new_files <- filter_unwanted(row.names(files$info), db, compare_full_pathname)

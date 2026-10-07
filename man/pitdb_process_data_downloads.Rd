@@ -7,6 +7,8 @@
 pitdb_process_data_downloads(
   db = NULL,
   path = NULL,
+  username = NULL,
+  pat = NULL,
   report_path = NULL,
   logfile_path = NULL,
   log_level = "INFO",
@@ -17,37 +19,55 @@ pitdb_process_data_downloads(
 )
 }
 \arguments{
-\item{db}{The pathname to the Microsoft Access database to insert downloaded files into.}
+\item{db}{The pathname to the Microsoft Access database to insert downloaded
+files into.}
 
-\item{path}{The pathname to the folder where data files wait to be processed. Usually
-placed there by git pull. Use C:/foo/bar/blah Unix forward slash notaion.}
+\item{path}{(character vector) The pathnames to the local Git repo folders to
+pull data to and then load into the database specified by \code{db}.   Use
+C:/foo/bar/blah Unix forward slash notaion.}
 
-\item{report_path}{Full pathname to folder where knitted import reports are to be stored. Defaults to \code{path/../Import records}}
+\item{username}{Optional character string containing the github username to
+use when connecting to GitHub. (Default: NULL). See
+\code{\link{setup_git_creds}} for default value when \code{NULL}.}
 
-\item{logfile_path}{Full pathname of file to receive logging information. Defaults to \code{dirname(db)/import_log.txt}.}
+\item{pat}{Character string containing the GitHub Personal Access Token (PAT).
+See \code{\link{setup_git_creds}} for default if \code{NULL}, and caveat when
+called from Windows Task Scheduler as the "SYSTEM" user.}
 
-\item{log_level}{One of \code{logging::loglevels}. E.g. \code{ c("NOTSET", "FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL", "FATAL") }
-Default is \code{"INFO"}}
+\item{report_path}{Full pathname to folder where knitted import reports are to
+be stored. Defaults to \code{path/../Import records}}
 
-\item{start_time}{Time of day to start looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. NOT IMPLEMENTED.}
+\item{logfile_path}{Full pathname of file to receive logging information.
+Defaults to \code{dirname(db)/import_log.txt}.}
 
-\item{end_time}{Time of day to stop looking for new files. Useful to avoid wasting time looking for new files during parts of the day when they
-are not expected to arrive. NOT IMPLEMENTED}
+\item{log_level}{One of \code{logging::loglevels}. E.g. \code{ c("NOTSET",
+"FINEST", "FINER", "FINE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL",
+"FATAL") } Default is \code{"INFO"}}
 
-\item{sleep_time}{If \code{NULL} (default), return after importing any new files.
-Otherwise, either number of seconds between checks for new files or a
+\item{start_time}{Time of day to start looking for new files. Useful to avoid
+wasting time looking for new files during parts of the day when they are not
+expected to arrive. NOT IMPLEMENTED.}
+
+\item{end_time}{Time of day to stop looking for new files. Useful to avoid
+wasting time looking for new files during parts of the day when they are not
+expected to arrive. NOT IMPLEMENTED}
+
+\item{sleep_time}{If \code{NULL} (default), return after importing any new
+files. Otherwise, either number of seconds between checks for new files or a
 character string of form "H:M:S" defining the time to wake each day.}
 
-\item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then comparing filenames
-in \code{path} to those already imported into \code{db} (in tblImports)
-  considers the full pathname, otherwise just considers the filename.}
+\item{compare_full_pathanme}{(Default \code{FALSE}). If \code{TRUE} then
+comparing filenames in \code{path} to those already imported into \code{db}
+(in tblImports) considers the full pathname, otherwise just considers the
+filename.}
 }
 \value{
 Doesn't normally return, but -1 on error.
 }
 \description{
-The function waits for new datafiles to arrive in folder \code{path} and imports them into the database specified by \code{db}.
+The function pulls data from a GitHub repo(s) whose local folder(s) is
+ specified in \code{path} and imports them into the database specified by
+ \code{db}.
 }
 \details{
 none as of yet

@@ -4,7 +4,14 @@
 \alias{pitr_setup_plot_repos}
 \title{Clone data repos for a given year to the local machine from GitHub}
 \usage{
-pitr_setup_plot_repos(base_folder, year, plot_nos = 1:6, force_delete = FALSE)
+pitr_setup_plot_repos(
+  base_folder,
+  year,
+  plot_nos = 1:6,
+  force_delete = FALSE,
+  user.name = "gull-island",
+  user.email = "gull-island@gmail.com"
+)
 }
 \arguments{
 \item{base_folder}{The folder under which individual plot data repos are cloned.}
