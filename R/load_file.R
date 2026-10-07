@@ -1,4 +1,5 @@
 #' @importFrom magrittr %>%
+#' @importFrom ensurer ensures_that
 #'@export
 #'@title Load a PIT tag datafile into a database.
 #'
