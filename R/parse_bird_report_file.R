@@ -81,9 +81,6 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
   statuses <- as.data.frame(sub(" S ", " ", dat[,1]))
   names(statuses) <- "string"
 
-  # Status records from some boards have fewer fields than expected (e.g. no
-  # trailing Freq). fill = "right" pads those with NA silently instead of
-  # emitting a "Missing pieces filled with NA" warning for every file.
   # note this line figures out which rows to keep in the slice by looking for
   # the initial "S " in dat, since it has already been removed from statuses.
   # There was a reason for this but I can't remember now....
@@ -92,7 +89,6 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
                       CableConnect = c("BoardID", "Date", "Time", "VCoin", "VIn", "MCUTemp", "Freq"),
                       "error"),
                    sep = "[ ]+",
-                   fill = "right",
                    convert = T)
   if(nrow(statuses) > 0) {
     statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))
@@ -182,4 +178,29 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
 
   # return value
   retval
+}
+
+#'@export
+#'@title Detect how a bird report file was fetched
+#'
+#'@description Look at the records in a bird report file and decide whether it
+#'  is a "WiFi" (base station) file or a "CableConnect" (direct download) file.
+#'
+#'@param filename Path to file containing data dumped from a monitor board.
+#'
+#'@details "CableConnect" records start with the board ID followed by a
+#'  single-letter record type, e.g. \code{4 S 2025-06-19 12:40:01 ...}. "WiFi"
+#'  records are prefixed with the fetch date, fetch time and WiFi module ID. Any
+#'  file whose first record does not look like a "CableConnect" record
+#'  (including empty and "no updates" files) is treated as "WiFi".
+#'
+#'@return Either "WiFi" or "CableConnect".
+#'@section Author: Dave Fifield
+#'
+pitdb_detect_fetch_type <- function(filename) {
+  lines <- readLines(con = filename, n = 50, warn = FALSE)
+  lines <- trimws(lines[trimws(lines) != ""])
+  if (length(lines) == 0) return("WiFi")
+
+  if (grepl("^[0-9]+ [STM] ", lines[1])) "CableConnect" else "WiFi"
 }

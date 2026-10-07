@@ -42,8 +42,12 @@ if (length(files) == 0) {
     print("Failed to open database.")
   } else {  
     files %>% purrr::walk(function(.x, ch = mych) {
-      pitdb_load_file(ch = ch, filename = .x, parse_summary = TRUE, 
-                      ignore_insert_errors = TRUE)})
+      # Direct downloads ("CableConnect") lack the fetch date/time and WiFi ID
+      # fields that base station files have, so parse each file by its format.
+      fetch_type <- pitdb_detect_fetch_type(.x)
+      pitdb_load_file(ch = ch, filename = .x, fetch_type = fetch_type,
+                      record_non_reporters = fetch_type == "WiFi",
+                      parse_summary = TRUE, ignore_insert_errors = TRUE)})
     pitdb_close(mych)
   }
 }
