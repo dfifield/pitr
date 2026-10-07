@@ -210,10 +210,16 @@ pitdb_load_file <- function(ch = NULL,
     print(rem_recs)
 
     # show what records were rejected.
-    num_filt <- sum(tot_recs - rem_recs)
+    # Compare totals, not the vectors: a table filtered to nothing is dropped
+    # from rem_recs, so the two vectors can differ in length.
+    num_filt <- sum(tot_recs) - sum(rem_recs)
     if (num_filt > 0) {
       cat(sprintf("\nThe following %d records were filtered out due to deployment date filtering:", num_filt))
-      diffs <- purrr::map2(dat_orig, dat, function(x, y) dplyr::setdiff(x, y))
+      # A table with every record filtered out is now NULL, so all of its
+      # original records were rejected.
+      diffs <- purrr::map2(dat_orig, dat, function(x, y) {
+        if (is.null(x)) NULL else if (is.null(y)) x else dplyr::setdiff(x, y)
+      })
       purrr::walk2(diffs, names(diffs), print_recs)
     }
   }
