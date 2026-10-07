@@ -81,6 +81,9 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
   statuses <- as.data.frame(sub(" S ", " ", dat[,1]))
   names(statuses) <- "string"
 
+  # Status records from some boards have fewer fields than expected (e.g. no
+  # trailing Freq). fill = "right" pads those with NA silently instead of
+  # emitting a "Missing pieces filled with NA" warning for every file.
   # note this line figures out which rows to keep in the slice by looking for
   # the initial "S " in dat, since it has already been removed from statuses.
   # There was a reason for this but I can't remember now....
@@ -89,6 +92,7 @@ pitdb_parse_bird_report_file <- function(filename, fetch_type, ignore_test_board
                       CableConnect = c("BoardID", "Date", "Time", "VCoin", "VIn", "MCUTemp", "Freq"),
                       "error"),
                    sep = "[ ]+",
+                   fill = "right",
                    convert = T)
   if(nrow(statuses) > 0) {
     statuses$dateTime <- as.POSIXct(strptime(paste0(statuses$Date, " ", statuses$Time), format = "%Y-%m-%d %H:%M:%S"))

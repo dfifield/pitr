@@ -43,10 +43,10 @@ do_insert <- function(dt, ch, strsql, ignore_errors, whch_table, import_ID, read
                         "#", format(dt$dateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr2, ",
                         "#", format(dt$fetchDateTime, format = "%Y-%b-%d %H:%M:%S"), "# AS Expr3, ",
                         "'", ifelse("WiFiID" %in% colnames(dt), dt$WiFiID, "CableConnect"), "' AS Expr4, ",
-                        dt$Freq, " AS Expr5, ",
-                        round(dt$VIn * VIn_to_volts, 2), " AS Expr6, ",
-                        round(dt$VCoin * VCoin_to_volts, 2), " AS Expr7, ",
-                        round(dt$MCUTemp * MCUTemp_to_temp, 1), " AS Expr8, ",
+                        sql_num(dt$Freq), " AS Expr5, ",
+                        sql_num(round(dt$VIn * VIn_to_volts, 2)), " AS Expr6, ",
+                        sql_num(round(dt$VCoin * VCoin_to_volts, 2)), " AS Expr7, ",
+                        sql_num(round(dt$MCUTemp * MCUTemp_to_temp, 1)), " AS Expr8, ",
                         import_ID, " AS Expr9;")
   } else if (whch_table == "tblUpload") {
       strsql <- paste0("INSERT INTO tblUpload ( [BoardID], [DateTime], [FetchDateTime], [WIFIID], [PrevIndex], [ImportID] ) SELECT ",
@@ -81,3 +81,7 @@ do_insert <- function(dt, ch, strsql, ignore_errors, whch_table, import_ID, read
     else
       FALSE
 }
+
+# Format a number for an SQL statement, writing missing values as NULL so a
+# status record with absent fields still inserts.
+sql_num <- function(x) ifelse(is.na(x), "NULL", as.character(x))
